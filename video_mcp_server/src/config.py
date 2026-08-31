@@ -36,8 +36,11 @@ class Settings(BaseSettings):
 
     # Caption Similarity Search Configuration 
     CAPTION_MODEL_PROMPT: str = "Describe what is happening in the image"
-    DELTA_SECONDS_FRAME_INTERVAL: float = 5.0
-
+    
+    # The time interval in seconds to extend before and after the frame's timestamp when searching for video clips based on image similarity. 
+    # This allows for a broader context around the matched frame, capturing relevant video segments that may not be exactly at the frame's timestamp but are still contextually related.
+    DELTA_SECONDS_FRAME_INTERVAL: float = 5.0 
+   
     # Video Search Engine Configuration 
     VIDEO_CLIP_SPEECH_SEARCH_TOP_K: int = 1 
     VIDEO_CLIP_CAPTION_SEARCH_TOP_K: int = 1

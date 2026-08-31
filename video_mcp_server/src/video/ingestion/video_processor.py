@@ -11,13 +11,13 @@ from pixeltable.functions.video import extract_audio
 from pixeltable.iterators import AudioSplitter
 from pixeltable.iterators.video import FrameIterator
 
-import mcp.src.video.ingestion.registry as registry
-from mcp.src.config import get_settings
-from mcp.src.video.ingestion.functions import extract_text_from_chunk, resize_image
-from mcp.src.video.ingestion.tools import re_encode_video
+import video_mcp_server.src.video.ingestion.registry as registry
+from video_mcp_server.src.config import get_settings
+from video_mcp_server.src.video.ingestion.functions import extract_text_from_chunk, resize_image
+from video_mcp_server.src.video.ingestion.tools import re_encode_video
 
 if TYPE_CHECKING:
-    from mcp.src.video.ingestion.models import CachedTable
+    from video_mcp_server.src.video.ingestion.models import CachedTable
 
 logger = logger.bind(name="VideoProcessor")
 settings = get_settings()
@@ -191,15 +191,15 @@ class VideoProcessor:
             if_exists="replace_force",
         )
 
-def add_video(self, video_path: str) -> bool:
-    if not self.video_table:
-        raise ValueError("Video table is not initialized. Call setup_table() first.")
-    logger.info(f"Adding video {video_path} to table {self.video_table_name}")
+    def add_video(self, video_path: str) -> bool:
+        if not self.video_table:
+            raise ValueError("Video table is not initialized. Call setup_table() first.")
+        logger.info(f"Adding video {video_path} to table {self.video_table_name}")
 
-    new_video_path = re_encode_video(video_path=video_path)
-    if not new_video_path:
-        logger.error(f"Failed to prepare video {video_path} for ingestion — skipping insert.")
-        return False
+        new_video_path = re_encode_video(video_path=video_path)
+        if not new_video_path:
+            logger.error(f"Failed to prepare video {video_path} for ingestion — skipping insert.")
+            return False
 
-    self.video_table.insert([{"video": new_video_path}])
-    return True
+        self.video_table.insert([{"video": new_video_path}])
+        return True

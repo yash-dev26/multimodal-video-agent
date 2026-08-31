@@ -7,8 +7,8 @@ from typing import Dict
 
 from loguru import logger
 
-from mcp.src.config import get_settings
-from mcp.src.video.ingestion.models import CachedTable, CachedTableMetadata
+from video_mcp_server.src.config import get_settings
+from video_mcp_server.src.video.ingestion.models import CachedTable, CachedTableMetadata
 
 logger = logger.bind(name="TableRegistry")
 Settings = get_settings()
