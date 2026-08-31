@@ -1,9 +1,9 @@
 from typing import Any, Dict, List
 
-import video_mcp_server.src.video.ingestion.registry as registry
-from video_mcp_server.src.config import get_settings
-from video_mcp_server.src.video.ingestion.models import CachedTable
-from video_mcp_server.src.video.ingestion.tools import decode_image
+import video_mcp_server.video.ingestion.registry as registry
+from video_mcp_server.config import get_settings
+from video_mcp_server.video.ingestion.models import CachedTable
+from video_mcp_server.video.ingestion.tools import decode_image
 
 settings = get_settings()
 

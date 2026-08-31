@@ -2,7 +2,7 @@ import os
 
 from loguru import logger
 
-from video_mcp_server.src.config import get_settings
+from video_mcp_server.config import get_settings
 
 settings = get_settings()
 

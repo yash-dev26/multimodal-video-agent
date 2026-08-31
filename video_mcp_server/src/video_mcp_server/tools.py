@@ -3,10 +3,10 @@ from uuid import uuid4
 
 from loguru import logger
 
-from video_mcp_server.src.config import get_settings
-from video_mcp_server.src.video.ingestion.tools import extract_video_clip
-from video_mcp_server.src.video.ingestion.video_processor import VideoProcessor
-from video_mcp_server.src.video.video_search_service import VideoSearchEngine
+from video_mcp_server.config import get_settings
+from video_mcp_server.video.ingestion.tools import extract_video_clip
+from video_mcp_server.video.ingestion.video_processor import VideoProcessor
+from video_mcp_server.video.video_search_service import VideoSearchEngine
 
 logger = logger.bind(name="MCPVideoTools")
 video_processor = VideoProcessor()

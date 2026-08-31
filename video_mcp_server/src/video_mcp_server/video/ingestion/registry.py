@@ -7,11 +7,11 @@ from typing import Dict
 
 from loguru import logger
 
-from video_mcp_server.src.config import get_settings
-from video_mcp_server.src.video.ingestion.models import CachedTable, CachedTableMetadata
+import video_mcp_server.video.ingestion.constants as cc
+from video_mcp_server.video.ingestion.models import CachedTable, CachedTableMetadata
 
 logger = logger.bind(name="TableRegistry")
-Settings = get_settings()
+
 
 VIDEO_INDEXES_REGISTRY: Dict[str, CachedTableMetadata] = {}
 
@@ -30,12 +30,12 @@ def get_registry() -> Dict[str, CachedTableMetadata]:
         try:
             registry_files = [
                 f
-                for f in os.listdir(Settings.DEFAULT_CACHED_TABLES_REGISTRY_DIR)
+                for f in os.listdir(cc.DEFAULT_CACHED_TABLES_REGISTRY_DIR)
                 if f.startswith("registry_") and f.endswith(".json")
             ]
             if registry_files:
                 latest_file = max(registry_files)
-                latest_registry = Path(Settings.DEFAULT_CACHED_TABLES_REGISTRY_DIR) / latest_file
+                latest_registry = Path(cc.DEFAULT_CACHED_TABLES_REGISTRY_DIR) / latest_file
                 with open(str(latest_registry), "r") as f:
                     VIDEO_INDEXES_REGISTRY = json.load(f)
                     for key, value in VIDEO_INDEXES_REGISTRY.items():
@@ -81,7 +81,7 @@ def add_index_to_registry(
 
     dt = datetime.now()
     dtstr = dt.strftime("%Y-%m-%d%H:%M:%S")
-    records_dir = Path(Settings.DEFAULT_CACHED_TABLES_REGISTRY_DIR)
+    records_dir = Path(cc.DEFAULT_CACHED_TABLES_REGISTRY_DIR)
     records_dir.mkdir(parents=True, exist_ok=True)
     with open(records_dir / f"registry_{dtstr}.json", "w") as f:
         for k, v in VIDEO_INDEXES_REGISTRY.items():

@@ -4,8 +4,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file="video_mcp_server/.env", extra="ignore", env_file_encoding="utf-8")
-
+    model_config = SettingsConfigDict(
+    env_file=".env",
+    extra="ignore",
+    env_file_encoding="utf-8",
+    )
 
     # LANGSMITH Configuration 
     LANGSMITH_API_KEY: str
@@ -46,10 +49,6 @@ class Settings(BaseSettings):
     VIDEO_CLIP_CAPTION_SEARCH_TOP_K: int = 1
     VIDEO_CLIP_IMAGE_SEARCH_TOP_K: int = 1
     QUESTION_ANSWER_TOP_K: int = 3
-
-    # Video Ingestion Registry Configuration
-
-    DEFAULT_CACHED_TABLES_REGISTRY_DIR = ".records"
 
 
 @lru_cache(maxsize=1)
