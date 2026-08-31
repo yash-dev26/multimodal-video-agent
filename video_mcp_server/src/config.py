@@ -4,13 +4,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file="kubrick-mcp/.env", extra="ignore", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file="video_mcp_server/.env", extra="ignore", env_file_encoding="utf-8")
 
 
     # LANGSMITH Configuration 
     LANGSMITH_API_KEY: str
-    LANGSMITH_TRACING: str = "default"
-    LANGSMITH_PROJECT: str = "multi-modal-mcp"
+    LANGSMITH_TRACING: bool
+    LANGSMITH_PROJECT: str = "multimodal-video-mcp"
 
     # OPENAI Configuration 
     OPENAI_API_KEY: str
