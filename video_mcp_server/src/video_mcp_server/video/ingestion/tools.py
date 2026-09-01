@@ -45,13 +45,15 @@ def extract_video_clip(video_path: str, start_time: float, end_time: float, outp
         output_path,
     ]
 
-    try:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, _ = process.communicate()
-        logger.debug(f"FFmpeg output: {stdout.decode('utf-8', errors='ignore')}")
-        return VideoFileClip(output_path)
-    except subprocess.CalledProcessError as e:
-        raise IOError(f"Failed to extract video clip: {str(e)}")
+    if output_path:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        raise IOError(f"ffmpeg failed to extract clip (exit {process.returncode}): {stderr.decode('utf-8', errors='ignore')}")
+    logger.debug(f"FFmpeg output: {stdout.decode('utf-8', errors='ignore')}")
+    return VideoFileClip(output_path)
 
 
 def encode_image(image: str | Image.Image) -> str:
@@ -109,9 +111,33 @@ def decode_image(base64_string: str) -> Image.Image:
     except (ValueError, IOError) as e:
         raise IOError(f"Failed to decode image: {str(e)}")
 
+def _try_ffmpeg_pass(command: list, output_path: Path) -> Optional[str]:
+    """Run an ffmpeg command and return output_path as a str if PyAV can open the result, else None."""
+    logger.info(f"Attempting: {' '.join(command)}")
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        logger.debug(f"FFmpeg stdout: {result.stdout}")
+        logger.debug(f"FFmpeg stderr: {result.stderr}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"FFmpeg failed for {output_path}: {e.stderr}")
+        return None
+
+    try:
+        with av.open(output_path) as _:
+            logger.info(f"{output_path} successfully opened by PyAV.")
+            return str(output_path)
+    except Exception as e:
+        logger.warning(f"{output_path} still not openable by PyAV: {e}")
+        return None
+
+
 def re_encode_video(video_path: str) -> Optional[str]:
     """
     Re-encode a video file to ensure compatibility with PyAV.
+
+    Tries a cheap `-c copy` remux first (fixes container-level issues like a
+    bad moov atom without touching the actual streams). Only falls back to a
+    full re-encode — slower, lossy — if the remux still isn't PyAV-openable.
 
     Returns the path to a PyAV-openable video, or None if it couldn't be
     opened or re-encoded.
@@ -125,26 +151,17 @@ def re_encode_video(video_path: str) -> Optional[str]:
             logger.info(f"Video {video_path} successfully opened by PyAV.")
             return str(video_path)
     except Exception as e:
-        logger.warning(f"PyAV couldn't open {video_path} directly, re-encoding: {e}")
+        logger.warning(f"PyAV couldn't open {video_path} directly, attempting remux/re-encode: {e}")
 
     o_dir, o_fname = Path(video_path).parent, Path(video_path).name
-    reencoded_video_path = o_dir / f"re_{o_fname}"
+    remuxed_path = o_dir / f"remux_{o_fname}"
+    reencoded_path = o_dir / f"re_{o_fname}"
 
-    command = ["ffmpeg", "-y", "-i", video_path, "-c", "copy", str(reencoded_video_path)]
-    logger.info(f"Attempting to re-encode video using FFmpeg: {' '.join(command)}")
+    remux_command = ["ffmpeg", "-y", "-i", video_path, "-c", "copy", str(remuxed_path)]
+    result = _try_ffmpeg_pass(remux_command, remuxed_path)
+    if result:
+        return result
 
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        logger.debug(f"FFmpeg stdout: {result.stdout}")
-        logger.debug(f"FFmpeg stderr: {result.stderr}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"FFmpeg re-encoding failed for {video_path}: {e.stderr}")
-        return None
-
-    try:
-        with av.open(reencoded_video_path) as _:
-            logger.info(f"Re-encoded video {reencoded_video_path} successfully opened by PyAV.")
-            return str(reencoded_video_path)
-    except Exception as e:
-        logger.error(f"Re-encoded video {reencoded_video_path} still not openable by PyAV: {e}")
-        return None
+    logger.info(f"Remux didn't fix {video_path}, falling back to a full re-encode.")
+    reencode_command = ["ffmpeg", "-y", "-i", video_path, "-c:v", "libx264", "-c:a", "aac", str(reencoded_path)]
+    return _try_ffmpeg_pass(reencode_command, reencoded_path)

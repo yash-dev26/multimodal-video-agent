@@ -7,7 +7,7 @@ logger = logger.bind(name="Prompts")
 
 # Rocky needs to determine whether the user needs to perform an operation on a video.
 ROUTING_SYSTEM_PROMPT = """
-You are a routing assistant responsible for determining whether the user needs 
+You are a routing assistant responsible for determining whether the user needs
 to perform an operation on a video.
 
 Given a conversation history, between the user and the assistant, your task is
@@ -24,7 +24,7 @@ Your output should be a boolean value indicating whether tool usage is required.
 # Rocky needs to determine which tool to use based on the user query (if any).
 TOOL_USE_SYSTEM_PROMPT = """
 Your name is Rocky, a tool use assistant in charge
-of a video processing application. 
+of a video processing application.
 
 You need to determine which tool to use based on the user query (if any).
 
@@ -53,52 +53,40 @@ You know a lot about films in general and about video processing techniques, and
 def routing_system_prompt() -> str:
     _prompt_id = "routing-system-prompt"
     try:
-        prompt = client.get_prompt(_prompt_id)
-        if prompt is None:
-            prompt = client.create_prompt(
-                name=_prompt_id,
-                prompt=ROUTING_SYSTEM_PROMPT,
-            )
-            logger.info(f"System prompt created. \n {prompt.commit=} \n {prompt.prompt=}")
-        return prompt.prompt
+        prompt = client.pull_prompt(_prompt_id)
+        return getattr(prompt, "template", str(prompt))
     except Exception:
         logger.warning("Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt.")
-        logger.warning(f"Using hardcoded prompt: {ROUTING_SYSTEM_PROMPT}")
-        prompt = ROUTING_SYSTEM_PROMPT
-    return prompt
+        try:
+            client.push_prompt(_prompt_id, object=ROUTING_SYSTEM_PROMPT)
+        except Exception:
+            logger.warning("Couldn't push hardcoded prompt to Langsmith either.")
+        return ROUTING_SYSTEM_PROMPT
 
 
 def tool_use_system_prompt() -> str:
     _prompt_id = "tool-use-system-prompt"
     try:
-        prompt = client.get_prompt(_prompt_id)
-        if prompt is None:
-            prompt = client.create_prompt(
-                name=_prompt_id,
-                prompt=TOOL_USE_SYSTEM_PROMPT,
-            )
-            logger.info(f"System prompt created. \n {prompt.commit=} \n {prompt.prompt=}")
-        return prompt.prompt
+        prompt = client.pull_prompt(_prompt_id)
+        return getattr(prompt, "template", str(prompt))
     except Exception:
         logger.warning("Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt.")
-        logger.warning(f"Using hardcoded prompt: {TOOL_USE_SYSTEM_PROMPT}")
-        prompt = TOOL_USE_SYSTEM_PROMPT
-    return prompt
+        try:
+            client.push_prompt(_prompt_id, object=TOOL_USE_SYSTEM_PROMPT)
+        except Exception:
+            logger.warning("Couldn't push hardcoded prompt to Langsmith either.")
+        return TOOL_USE_SYSTEM_PROMPT
 
 
 def general_system_prompt() -> str:
     _prompt_id = "general-system-prompt"
     try:
-        prompt = client.get_prompt(_prompt_id)
-        if prompt is None:
-            prompt = client.create_prompt(
-                name=_prompt_id,
-                prompt=GENERAL_SYSTEM_PROMPT,
-            )
-            logger.info(f"System prompt created. \n {prompt.commit=} \n {prompt.prompt=}")
-        return prompt.prompt
+        prompt = client.pull_prompt(_prompt_id)
+        return getattr(prompt, "template", str(prompt))
     except Exception:
         logger.warning("Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt.")
-        logger.warning(f"Using hardcoded prompt: {GENERAL_SYSTEM_PROMPT}")
-        prompt = GENERAL_SYSTEM_PROMPT
-    return prompt
+        try:
+            client.push_prompt(_prompt_id, object=GENERAL_SYSTEM_PROMPT)
+        except Exception:
+            logger.warning("Couldn't push hardcoded prompt to Langsmith either.")
+        return GENERAL_SYSTEM_PROMPT

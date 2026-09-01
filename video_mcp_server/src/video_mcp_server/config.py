@@ -1,14 +1,14 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# src/video_mcp_server/config.py -> video_mcp_server/.env
+_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-    env_file=".env",
-    extra="ignore",
-    env_file_encoding="utf-8",
-    )
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore", env_file_encoding="utf-8")
 
     # LANGSMITH Configuration 
     LANGSMITH_API_KEY: str
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # OPENAI Configuration 
     OPENAI_API_KEY: str
-    AUDIO_TRANSCRIPT_MODEL: str = "gpt-4o-mini-transcribe"  # Whisper tiny model 37M
+    AUDIO_TRANSCRIPT_MODEL: str = "gpt-4o-mini-transcribe"
     IMAGE_CAPTION_MODEL: str = "gpt-4o-mini"
 
     # Video Ingestion Configuration 

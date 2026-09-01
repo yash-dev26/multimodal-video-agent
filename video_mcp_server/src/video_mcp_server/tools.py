@@ -1,6 +1,6 @@
-from typing import Dict
 from uuid import uuid4
 
+from langsmith import traceable
 from loguru import logger
 
 from video_mcp_server.config import get_settings
@@ -13,14 +13,16 @@ video_processor = VideoProcessor()
 settings = get_settings()
 
 
-def process_video(video_path: str) -> str:
+@traceable(name="process_video", run_type="tool")
+def process_video(video_path: str) -> bool:
     """Process a video file and prepare it for searching.
 
     Args:
         video_path (str): Path to the video file to process.
 
     Returns:
-        str: Success message indicating the video was processed.
+        bool: True if the video is already indexed and ready, or was
+            successfully processed. False if processing failed.
 
     Raises:
         ValueError: If the video file cannot be found or processed.
@@ -28,12 +30,13 @@ def process_video(video_path: str) -> str:
     exists = video_processor._check_if_exists(video_path)
     if exists:
         logger.info(f"Video index for '{video_path}' already exists and is ready for use.")
-        return False
+        return True
     video_processor.setup_table(video_name=video_path)
     is_done = video_processor.add_video(video_path=video_path)
     return is_done
 
 
+@traceable(name="get_video_clip_from_user_query", run_type="tool")
 def get_video_clip_from_user_query(video_path: str, user_query: str) -> str:
     """Get a video clip based on the user query using speech and caption similarity.
 
@@ -49,6 +52,9 @@ def get_video_clip_from_user_query(video_path: str, user_query: str) -> str:
     speech_clips = search_engine.search_by_speech(user_query, settings.VIDEO_CLIP_SPEECH_SEARCH_TOP_K)
     caption_clips = search_engine.search_by_caption(user_query, settings.VIDEO_CLIP_CAPTION_SEARCH_TOP_K)
 
+    if not speech_clips and not caption_clips:
+        raise ValueError(f"No matching clip found in '{video_path}' for query: {user_query!r}")
+
     speech_sim = speech_clips[0]["similarity"] if speech_clips else 0
     caption_sim = caption_clips[0]["similarity"] if caption_clips else 0
 
@@ -60,12 +66,13 @@ def get_video_clip_from_user_query(video_path: str, user_query: str) -> str:
         start_time=video_clip_info["start_time"],
         end_time=video_clip_info["end_time"],
         # Docker volume mount path, UI will use this same shared volume path to access the video clip.
-        output_path=f"./shared_media/{str(uuid4())}.mp4", 
+        output_path=f"./shared_media/{str(uuid4())}.mp4",
     )
 
     return video_clip.filename
 
 
+@traceable(name="get_video_clip_from_image", run_type="tool")
 def get_video_clip_from_image(video_path: str, user_image: str) -> str:
     """Get a video clip based on similarity to a provided image.
 
@@ -79,6 +86,9 @@ def get_video_clip_from_image(video_path: str, user_image: str) -> str:
     search_engine = VideoSearchEngine(video_path)
     image_clips = search_engine.search_by_image(user_image, settings.VIDEO_CLIP_IMAGE_SEARCH_TOP_K)
 
+    if not image_clips:
+        raise ValueError(f"No matching clip found in '{video_path}' for the provided image.")
+
     video_clip = extract_video_clip(
         video_path=video_path,
         start_time=image_clips[0]["start_time"],
@@ -90,6 +100,7 @@ def get_video_clip_from_image(video_path: str, user_image: str) -> str:
     return video_clip.filename
 
 
+@traceable(name="ask_question_about_video", run_type="tool")
 def ask_question_about_video(video_path: str, user_query: str) -> str:
     """Get relevant captions from the video based on the user's question.
 

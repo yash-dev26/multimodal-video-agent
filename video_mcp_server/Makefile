@@ -20,4 +20,4 @@ stop:
 	rm -rf .pixeltable .records
 
 inspect:
-	npx @modelcontextprotocol/inspector
+	npx @modelcontextprotocol/inspector@latest

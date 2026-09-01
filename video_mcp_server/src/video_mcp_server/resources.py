@@ -1,23 +1,20 @@
-from typing import Dict
-from video_mcp_server.video.ingestion.models import CachedTable, CachedTableMetadata
+import json
+
+from video_mcp_server.video.ingestion.models import CachedTable
 from video_mcp_server.video.ingestion.registry import get_registry
 
 
-def list_tables() -> Dict[str, str]:
+def list_tables() -> str:
     """List all video indexes currently available.
 
     Returns:
-        A string listing the current video indexes.
+        A JSON string listing the current video indexes.
     """
     keys = list(get_registry().keys())
     if not keys:
-        return None
-    
-    response = {
-        "message": "Current processed videos",
-        "indexes": keys,
-    }
-    return response
+        return json.dumps({"message": "No videos have been processed yet.", "indexes": []})
+
+    return json.dumps({"message": "Current processed videos", "indexes": keys})
 
 
 def table_info(table_name: str) -> str:
@@ -32,8 +29,7 @@ def table_info(table_name: str) -> str:
     registry = get_registry()
     if table_name not in registry:
         return f"Video index '{table_name}' does not exist."
-    table_metadata = registry[table_name]
-    table_info = CachedTableMetadata(**table_metadata)
-    table = CachedTable.from_metadata(table_info)
-    response = table.describe()
-    return response
+    # Registry entries are either a JSON string (just-registered, in-memory)
+    # or a CachedTableMetadata (loaded from disk) — never a plain dict.
+    table = CachedTable.from_metadata(json.loads(registry[table_name]) if isinstance(registry[table_name], str) else registry[table_name])
+    return table.describe()

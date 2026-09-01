@@ -23,14 +23,6 @@ class CachedTableMetadata(BaseModel):
 
 
 class CachedTable:
-    video_cache: str = Field(..., description="Path to the video cache")
-    video_table: pxt.Table = Field(..., description="Root video table")
-    frames_view: pxt.Table = Field(..., description="Video frames which were split using a FPS and frame iterator")
-    audio_chunks_view: pxt.Table = Field(
-        ...,
-        description="After chunking audio, getting transcript and splitting it into sentences",
-    )
-
     def __init__(
         self,
         video_name: str,
@@ -57,12 +49,14 @@ class CachedTable:
         )
 
     def __str__(self):
-        return {
-            "video_cache": self.video_cache,
-            "video_table": str(self.video_table),
-            "frames_view": str(self.frames_view),
-            "audio_chunks_view": str(self.audio_chunks_view),
-        }
+        return str(
+            {
+                "video_cache": self.video_cache,
+                "video_table": str(self.video_table),
+                "frames_view": str(self.frames_view),
+                "audio_chunks_view": str(self.audio_chunks_view),
+            }
+        )
 
     def describe(self) -> str:
         """Returns a string describing the video table."""

@@ -27,16 +27,12 @@ class VideoProcessor:
     def __init__(
         self,
     ):
-        self._pxt_cache: Optional[str] = None
-        self._video_table = None
-        self._frames_view = None # in pxt, view is a subtable that is created from a table or another view, and it can be used to perform operations on the data without modifying the original table or view.
-        self._audio_chunks = None
         self._video_mapping_idx: Optional[str] = None
 
         logger.info(
-            "VideoProcessor initialized",
-            f"\n Split FPS: {settings.SPLIT_FRAMES_COUNT}",
-            f"\n Audio Chunk: {settings.AUDIO_CHUNK_LENGTH} seconds",
+            f"VideoProcessor initialized"
+            f"\n Split FPS: {settings.SPLIT_FRAMES_COUNT}"
+            f"\n Audio Chunk: {settings.AUDIO_CHUNK_LENGTH} seconds"
         )
 
     def setup_table(self, video_name: str):
@@ -51,7 +47,7 @@ class VideoProcessor:
             self.audio_chunks = cached_table.audio_chunks_view
 
         else:
-            self.pxt_cache = f"cache_{uuid.uuid4().hex[-4:]}"
+            self.pxt_cache = f"cache_{uuid.uuid4().hex}"
             self.video_table_name = f"{self.pxt_cache}.table"
             self.frames_view_name = f"{self.video_table_name}_frames"
             self.audio_view_name = f"{self.video_table_name}_audio_chunks"
@@ -170,7 +166,7 @@ class VideoProcessor:
 
     def _add_frame_embedding_index(self):
         self.frames_view.add_embedding_index(
-            column=self.frames_view.resized_frame, # Using resized frame for embedding to reduce size and improve performance
+            column=self.frames_view.resized_frame,  # Using resized frame for embedding to reduce size and improve performance
             image_embed=clip.using(model_id=settings.IMAGE_SIMILARITY_EMBD_MODEL),
             if_exists="replace_force",
         )

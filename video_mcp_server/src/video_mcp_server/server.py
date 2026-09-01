@@ -4,6 +4,7 @@ from fastmcp.prompts import Prompt
 from fastmcp.resources import FunctionResource
 from fastmcp.tools import Tool
 
+from video_mcp_server.langsmith import configure as configure_langsmith
 from video_mcp_server.prompts import general_system_prompt, routing_system_prompt, tool_use_system_prompt
 from video_mcp_server.resources import list_tables
 from video_mcp_server.tools import (
@@ -66,7 +67,7 @@ def add_mcp_prompts(mcp: FastMCP) -> None:
         Prompt.from_function(
             fn=routing_system_prompt,
             name="routing_system_prompt",
-            description="Latest version of the routing prompt from Opik.",
+            description="Latest version of the routing prompt from LangSmith.",
             tags={"prompt", "routing"},
         )
     )
@@ -74,7 +75,7 @@ def add_mcp_prompts(mcp: FastMCP) -> None:
         Prompt.from_function(
             fn=tool_use_system_prompt,
             name="tool_use_system_prompt",
-            description="Latest version of the tool use prompt from Opik.",
+            description="Latest version of the tool use prompt from LangSmith.",
             tags={"prompt", "tool_use"},
         )
     )
@@ -82,11 +83,13 @@ def add_mcp_prompts(mcp: FastMCP) -> None:
         Prompt.from_function(
             fn=general_system_prompt,
             name="general_system_prompt",
-            description="Latest version of the general prompt from Opik.",
+            description="Latest version of the general prompt from LangSmith.",
             tags={"prompt", "general"},
         )
     )
 
+
+configure_langsmith()
 
 mcp = FastMCP("VideoProcessor")
 
