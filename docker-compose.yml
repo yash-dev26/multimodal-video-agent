@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: multimodal_agent
+      POSTGRES_PASSWORD: multimodal_agent
+      POSTGRES_DB: multimodal_agent
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - agent-net
+
+  video-mcp-server:
+    build: ./video_mcp_server
+    env_file: ./video_mcp_server/.env
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./video_mcp_server/data:/app/videos
+      - ./video_mcp_server/.pixeltable:/root/.pixeltable
+      - ./video_mcp_server/.records:/app/.records
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      # NOTE: this volume did not exist in video_mcp_server/Makefile's own
+      # `docker run` invocation. Without it, the clips get_video_clip_from_*
+      # write to "./shared_media/..." inside this container are invisible
+      # to multimodal-agent's /media route below -- they'd need to share
+      # this exact path to see each other's files.
+      - shared_media:/app/shared_media
+    networks:
+      - agent-net
+
+  multimodal-agent:
+    build: ./multimodal_agent
+    env_file: ./multimodal_agent/.env
+
+    environment:
+      - CHECKPOINTER_DB_URL=postgresql://multimodal_agent:multimodal_agent@postgres:5432/multimodal_agent
+    ports:
+      - "8080:8080"
+    volumes:
+      - shared_media:/app/shared_media
+    depends_on:
+      - video-mcp-server
+      - postgres
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+
+volumes:
+  shared_media:
+  postgres_data:

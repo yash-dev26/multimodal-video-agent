@@ -1,0 +1,8 @@
+shared_media/
+.venv/
+.env
+.DS_Store
+.vscode/
+.ruff_cache/
+__pycache__/
+*.pyc

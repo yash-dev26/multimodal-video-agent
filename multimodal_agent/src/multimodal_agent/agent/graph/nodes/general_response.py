@@ -1,12 +1,21 @@
-from fastmcp import settings
+"""
+General-response node: answers directly, without any tool call.
 
-from multimodal_agent.src.multimodal_agent.models import GeneralResponseModel
+Now a factory returning a proper `(state) -> dict` node.
+"""
+
+from langchain_core.messages import AIMessage, SystemMessage
+
+from multimodal_agent.agent.state import AgentState
+from multimodal_agent.models import GeneralResponseModel
 
 
-def _respond_general(self, message: str) -> str:
-        chat_history = self._build_chat_history(self.general_system_prompt, message)
-        return self.instructor_client.chat.completions.create(
-            model=settings.GROQ_GENERAL_MODEL,
-            messages=chat_history,
-            response_model=GeneralResponseModel,
-        )
+def make_general_response_node(llm, general_system_prompt: str):
+    structured_llm = llm.with_structured_output(GeneralResponseModel)
+
+    def general_response_node(state: AgentState) -> dict:
+        history = [SystemMessage(content=general_system_prompt), *state["messages"]]
+        response = structured_llm.invoke(history)
+        return {"messages": [AIMessage(content=response.message)]}
+
+    return general_response_node

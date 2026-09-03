@@ -1,17 +1,34 @@
-from fastmcp import settings
+"""
+Router node: decides whether the user's message needs a tool call.
 
-from multimodal_agent.src.multimodal_agent.models import RoutingResponseModel
+This is now a factory: `make_router_node(llm, routing_system_prompt)`
+returns a real `(state) -> dict` node, closing over an LLM client and the
+prompt text fetched from the MCP server at startup (see build_graph() in
+graph.py) instead of reading them off `self`.
+"""
+
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from multimodal_agent.agent.state import AgentState
+from multimodal_agent.models import RoutingResponseModel
 
 
-def _should_use_tool(self, message: str) -> bool:
-        messages = [
-            {"role": "system", "content": self.routing_system_prompt},
-            {"role": "user", "content": message},
-        ]
-        response = self.instructor_client.chat.completions.create(
-            model=settings.GROQ_ROUTING_MODEL,
-            response_model=RoutingResponseModel,
-            messages=messages,
-            max_completion_tokens=20,
+def make_router_node(llm, routing_system_prompt: str):
+    structured_llm = llm.with_structured_output(RoutingResponseModel)
+
+    def router_node(state: AgentState) -> dict:
+        last_human = next(
+            (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+            None,
         )
-        return response.tool_use
+        message_text = last_human.content if last_human is not None else ""
+
+        response = structured_llm.invoke(
+            [
+                SystemMessage(content=routing_system_prompt),
+                HumanMessage(content=message_text),
+            ]
+        )
+        return {"needs_tool": response.tool_use}
+
+    return router_node

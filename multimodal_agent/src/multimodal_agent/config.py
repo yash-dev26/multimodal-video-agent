@@ -1,10 +1,9 @@
 from functools import lru_cache
-from pydantic import Field
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file="agent-api/.env", extra="ignore", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_file_encoding="utf-8")
 
     # GROQ Configuration
     GROQ_API_KEY: str
@@ -23,6 +22,9 @@ class Settings(BaseSettings):
 
     # MCP Configuration
     MCP_SERVER: str = "http://video-mcp-server:9090/mcp"
+
+    # Checkpointer Configuration 
+    CHECKPOINTER_DB_URL: str
 
     # Disable Nest Asyncio
     DISABLE_NEST_ASYNCIO: bool = True

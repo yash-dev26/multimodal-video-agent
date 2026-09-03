@@ -1,0 +1,14 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+click>=8.1
+loguru>=0.7
+pydantic>=2.7
+pydantic-settings>=2.4
+langchain-core>=0.3
+langchain-groq>=0.2
+langgraph>=0.2
+langchain-mcp-adapters>=0.1
+fastmcp>=2.0
+langgraph-checkpoint-postgres>=2.0
+psycopg[binary,pool]>=3.1

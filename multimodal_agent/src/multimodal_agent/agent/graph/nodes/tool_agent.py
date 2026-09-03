@@ -1,102 +1,106 @@
-from griffe import logger
-from traitlets import Any
-import json
-from multimodal_agent.models import GeneralResponseModel, VideoClipResponseModel
-from multimodal_agent.config import get_settings
+"""
+Tool-use node: the ReAct-style loop that calls MCP tools (get a clip from a
+query/image, ask a question about the video) and produces a follow-up
+answer once the LLM stops requesting tools.
 
-settings = get_settings()
+Design note: the LLM is never told the real `video_path` / `image_base64` —
+those come from app state (the user's own upload), not something the model
+should be trusted to supply an argument for — so this node injects them
+into the tool call's args itself, after the LLM decides which tool to call
+but before ToolNode executes it. 
+"""
+
+from typing import Any
+
+from loguru import logger
+from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+
+from multimodal_agent.agent.state import AgentState
+
+# Tools whose return value is a clip file path, not a plain text answer
+# (see video_mcp_server/tools.py — ask_question_about_video returns text).
+CLIP_PRODUCING_TOOLS = {"get_video_clip_from_user_query", "get_video_clip_from_image"}
 
 
-async def _execute_tool_call(self, tool_call: Any, video_path: str, image_base64: str | None = None) -> str:
-        """Execute a single tool call and return its response."""
-        function_name = tool_call.function.name
-        function_args = json.loads(tool_call.function.arguments)
+def _inject_context_args(tool_calls: list[dict], video_path: str | None, image_base64: str | None) -> list[dict]:
+    """
+    Fill in the args the LLM can't/shouldn't supply itself.
 
-        function_args["video_path"] = video_path
+    All four MCP video tools take `video_path`; `get_video_clip_from_image`
+    additionally takes `user_image`. Both come from the current turn's
+    AgentState, not from anything the model generated.
+    """
+    updated = []
+    for call in tool_calls:
+        args = dict(call.get("args", {}))
+        args["video_path"] = video_path
+        if call.get("name") == "get_video_clip_from_image":
+            args["user_image"] = image_base64
+        updated.append({**call, "args": args})
+    return updated
 
-        if function_name == "get_video_clip_from_image":
-            function_args["user_image"] = image_base64
 
-        logger.info(f"Executing tool: {function_name}")
+def _extract_tool_text(content: Any) -> str:
+    """
+    Normalize a ToolMessage's content down to a plain string.
 
-        try:
-            return await self.call_tool(function_name, function_args)
-        except Exception as e:
-            logger.error(f"Error executing tool {function_name}: {str(e)}")
-            return f"Error executing tool {function_name}: {str(e)}"
+    langchain_mcp_adapters can return either a plain string or a list of
+    MCP content blocks (e.g. [{"type": "text", "text": "..."}]) depending
+    on the MCP server's response shape. The video_mcp_server tools here all
+    return plain `str`, but this stays defensive rather than assuming that
+    never changes.
+    """
+    if isinstance(content, str):
+        return content.strip().strip('"')
+    if isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                return str(block.get("text", "")).strip().strip('"')
+        return str(content)
+    return str(content)
 
-    
-async def _run_with_tool(self, message: str, video_path: str, image_base64: str | None = None) -> str:
-        """Execute chat completion with tool usage."""
-        tool_use_system_prompt = self.tool_use_system_prompt.format(
-            is_image_provided=bool(image_base64),
-        )
-        chat_history = self._build_chat_history(tool_use_system_prompt, message)
 
-        response = (
-            self.client.chat.completions.create(
-                model=settings.GROQ_TOOL_USE_MODEL,
-                messages=chat_history,
-                tools=self.tools,
-                tool_choice="auto",
-                max_completion_tokens=4096,
-            )
-            .choices[0]
-            .message
-        )
-        tool_calls = response.tool_calls
-        logger.info(f"Tool calls: {tool_calls}")
+def _find_new_clip_path(messages: list) -> str | None:
+    """
+    Look at the most recent contiguous run of ToolMessages -- the ones
+    ToolNode just appended before looping back to this node -- for a
+    clip-producing tool's result.
+    """
+    for message in reversed(messages):
+        if not isinstance(message, ToolMessage):
+            break  # walked past this round's tool results
+        if message.name in CLIP_PRODUCING_TOOLS and getattr(message, "status", "success") != "error":
+            return _extract_tool_text(message.content)
+    return None
 
-        if not tool_calls:
-            logger.info("No tool calls available, returning general response ...")
-            return GeneralResponseModel(message=response.content)
 
-        for tool_call in tool_calls:
-            function_response = await self._execute_tool_call(tool_call, video_path, image_base64)
-            logger.info(f"Function response: {function_response}")
-            
-            if tool_call.function.name == "get_video_clip_from_image":
-                tool_response = f"This is the video context. Use it to answer the user's question: {function_response}"
-            else:
-                tool_response = function_response
-            
-            chat_history.append(
-                {
-                    "tool_call_id": tool_call.id,
-                    "role": "tool",
-                    "name": tool_call.function.name,
-                    "content": tool_response,
+def make_tool_agent_node(llm_with_tools, tool_use_system_prompt: str):
+    def tool_agent_node(state: AgentState) -> dict:
+        updates: dict = {}
+
+        new_clip_path = _find_new_clip_path(state["messages"])
+        if new_clip_path:
+            logger.info(f"Tool loop produced clip: {new_clip_path}")
+            updates["clip_path"] = new_clip_path
+
+        system_prompt = tool_use_system_prompt.format(is_image_provided=bool(state.get("image_base64")))
+        history = [SystemMessage(content=system_prompt), *state["messages"]]
+
+        response: AIMessage = llm_with_tools.invoke(history)
+
+        if response.tool_calls:
+            logger.info(f"Tool calls requested: {[c['name'] for c in response.tool_calls]}")
+            response = response.model_copy(
+                update={
+                    "tool_calls": _inject_context_args(
+                        response.tool_calls,
+                        video_path=state.get("video_path"),
+                        image_base64=state.get("image_base64"),
+                    )
                 }
             )
 
-        response_model = (
-            GeneralResponseModel if tool_call.function.name == "ask_question_about_video" else VideoClipResponseModel
-        )
-        
-        logger.info(f"Chat history: {chat_history}")
-        
-        followup_response = self.instructor_client.chat.completions.create(
-            model=settings.GROQ_TOOL_USE_MODEL,
-            messages=chat_history,
-            response_model=response_model,
-        )
+        updates["messages"] = [response]
+        return updates
 
-        if isinstance(followup_response, VideoClipResponseModel):
-            try:
-                logger.info("Validating VideoClip response")
-                self.validate_video_clip_response(followup_response, tool_response)
-                
-                logger.info(f"Tracing image from trimmed clip: {followup_response.clip_path}")
-                first_image_path = tools.sample_first_frame(followup_response.clip_path)
-                opik_context.update_current_trace(
-                    attachments=[
-                        Attachment(
-                            data=first_image_path,
-                            content_type="image/png",
-                        )
-                    ]
-                )
-            except ValueError as e:
-                logger.error(f"Failed to sample first frame from video: {e}")
-
-        return followup_response
+    return tool_agent_node

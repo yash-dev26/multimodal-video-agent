@@ -1,5 +1,5 @@
 import shutil
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from enum import Enum
 from pathlib import Path
 from uuid import uuid4
@@ -12,11 +12,17 @@ from fastapi.staticfiles import StaticFiles
 from fastmcp.client import Client
 from loguru import logger
 
-from multimodal_agent.agent import GroqAgent
-from multimodal_agent.src.multimodal_agent.config import get_settings
+from multimodal_agent.config import get_settings
+from multimodal_agent.agent.checkpointer import checkpointer_context
+from multimodal_agent.agent.graph.graph import build_graph
 from multimodal_agent.models import AssistantMessageResponse, ProcessVideoRequest, ProcessVideoResponse, ResetMemoryResponse, UserMessageRequest, VideoUploadResponse
 
 settings = get_settings()
+
+# The shared_media directory is now created at startup if
+# it doesn't exist, instead of assuming the user created it manually.
+SHARED_MEDIA_DIR = Path("shared_media")
+SHARED_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class TaskStatus(str, Enum):
@@ -29,14 +35,14 @@ class TaskStatus(str, Enum):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.agent = GroqAgent(
-        name="Multimodal Video Agent",
-        mcp_server=settings.MCP_SERVER,
-        disable_tools=["process_video"],
-    )
-    app.state.bg_task_states = dict()
-    yield
-    app.state.agent.reset_memory()
+    """
+    lifespan context manager for FastAPI app. Sets up the checkpointer and builds the graph.
+    """
+    async with AsyncExitStack() as stack:
+        checkpointer = await stack.enter_async_context(checkpointer_context())
+        app.state.graph, app.state.mcp_prompts = await build_graph(checkpointer)
+        app.state.bg_task_states = dict()
+        yield
 
 
 app = FastAPI(
@@ -56,7 +62,7 @@ app.add_middleware(
 )
 
 # Mount static files for media serving
-app.mount("/media", StaticFiles(directory="shared_media"), name="media")
+app.mount("/media", StaticFiles(directory=str(SHARED_MEDIA_DIR)), name="media")
 
 
 @app.get("/")
@@ -65,6 +71,19 @@ async def root():
     Root endpoint that redirects to API documentation
     """
     return {"message": "Welcome to Rocky API. Visit /docs for documentation"}
+
+
+@app.get("/health")
+async def health(fastapi_request: Request):
+    """
+    Liveness/readiness check.
+
+    Reports "ok" once lifespan has finished building the graph (i.e. MCP
+    tool/prompt discovery succeeded and the checkpointer is open) --
+    cheap and synchronous, no network round-trip on every call.
+    """
+    is_ready = getattr(fastapi_request.app.state, "graph", None) is not None
+    return {"status": "ok" if is_ready else "not_ready"}
 
 
 @app.get("/task-status/{task_id}")
@@ -88,8 +107,9 @@ async def process_video(request: ProcessVideoRequest, bg_tasks: BackgroundTasks,
         bg_task_states[task_id] = TaskStatus.IN_PROGRESS
 
         if not Path(video_path).exists():
+            logger.error(f"Video file not found: {video_path}")
             bg_task_states[task_id] = TaskStatus.FAILED
-            raise HTTPException(status_code=404, detail="Video file not found")
+            return
 
         try:
             mcp_client = Client(settings.MCP_SERVER)
@@ -98,7 +118,7 @@ async def process_video(request: ProcessVideoRequest, bg_tasks: BackgroundTasks,
         except Exception as e:
             logger.error(f"Error processing video {video_path}: {e}")
             bg_task_states[task_id] = TaskStatus.FAILED
-            raise HTTPException(status_code=500, detail=str(e))
+            return
         bg_task_states[task_id] = TaskStatus.COMPLETED
 
     bg_tasks.add_task(background_process_video, request.video_path, task_id)
@@ -108,26 +128,39 @@ async def process_video(request: ProcessVideoRequest, bg_tasks: BackgroundTasks,
 @app.post("/chat", response_model=AssistantMessageResponse)
 async def chat(request: UserMessageRequest, fastapi_request: Request):
     graph = fastapi_request.app.state.graph
+    thread_id = request.thread_id or str(uuid4())
+    if not thread_id:
+        raise HTTPException(status_code=400, detail="No thread ID provided")
     result = await graph.ainvoke(
         {
             "messages": [{"role": "user", "content": request.message}],
             "video_path": request.video_path,
             "image_base64": request.image_base64,
         },
-        config={"configurable": {"thread_id": fastapi_request.app.state.thread_id}},
+        config={"configurable": {"thread_id": thread_id}},
     )
     return AssistantMessageResponse(
         message=result["messages"][-1].content,
         clip_path=result.get("clip_path"),
+        thread_id=thread_id,
     )
 
+
 @app.post("/reset-memory")
-async def reset_memory(fastapi_request: Request):
+async def reset_memory(thread_id: str, fastapi_request: Request):
     """
-    Reset the memory of the agent
+    Reset the memory of the agent for a given thread.
     """
-    agent = fastapi_request.app.state.agent
-    agent.reset_memory()
+    checkpointer = fastapi_request.app.state.graph.checkpointer
+    delete = getattr(checkpointer, "adelete_thread", None) or getattr(checkpointer, "delete_thread", None)
+    if delete is None:
+        raise HTTPException(
+            status_code=501,
+            detail=f"{type(checkpointer).__name__} does not support deleting a thread's checkpoint.",
+        )
+    result = delete(thread_id)
+    if hasattr(result, "__await__"):
+        await result
     return ResetMemoryResponse(message="Memory reset successfully")
 
 
@@ -140,10 +173,7 @@ async def upload_video(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="No file uploaded")
 
     try:
-        shared_media_dir = Path("shared_media")
-        shared_media_dir.mkdir(exist_ok=True)
-
-        video_path = Path(shared_media_dir / file.filename)
+        video_path = SHARED_MEDIA_DIR / file.filename
         if not video_path.exists():
             with open(video_path, "wb") as f:
                 shutil.copyfileobj(file.file, f)
@@ -161,7 +191,7 @@ async def serve_media(file_path: str):
     """
     try:
         clean_path = Path(file_path).name
-        media_file = Path("shared_media") / clean_path
+        media_file = SHARED_MEDIA_DIR / clean_path
 
         if not media_file.exists():
             raise HTTPException(status_code=404, detail="File not found")
@@ -178,7 +208,7 @@ async def serve_media(file_path: str):
 def run_api(port, host):
     import uvicorn
 
-    uvicorn.run("api:app", host=host, port=port, loop="asyncio")
+    uvicorn.run("multimodal_agent.api:app", host=host, port=port, loop="asyncio")
 
 
 if __name__ == "__main__":
