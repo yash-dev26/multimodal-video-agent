@@ -9,6 +9,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - agent-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U multimodal_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   video-mcp-server:
     build: ./video_mcp_server
@@ -20,28 +25,56 @@ services:
       - ./video_mcp_server/.pixeltable:/root/.pixeltable
       - ./video_mcp_server/.records:/app/.records
       - ~/.cache/huggingface:/root/.cache/huggingface
-      # NOTE: this volume did not exist in video_mcp_server/Makefile's own
-      # `docker run` invocation. Without it, the clips get_video_clip_from_*
-      # write to "./shared_media/..." inside this container are invisible
-      # to multimodal-agent's /media route below -- they'd need to share
-      # this exact path to see each other's files.
+      # Shared volume: clips written by this container (./shared_media/*.mp4)
+      # are immediately accessible to multimodal-agent's /media route.
       - shared_media:/app/shared_media
     networks:
       - agent-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9090/mcp || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   multimodal-agent:
     build: ./multimodal_agent
     env_file: ./multimodal_agent/.env
-
     environment:
+      - IN_DOCKER=true
       - CHECKPOINTER_DB_URL=postgresql://multimodal_agent:multimodal_agent@postgres:5432/multimodal_agent
+      # MCP server — When running outside Docker, config.py automatically
+      # defaults or adapts this to http://localhost:9090/mcp.
+      - MCP_SERVER=http://video-mcp-server:9090/mcp
     ports:
       - "8080:8080"
     volumes:
       - shared_media:/app/shared_media
     depends_on:
-      - video-mcp-server
-      - postgres
+      postgres:
+        condition: service_healthy
+      video-mcp-server:
+        condition: service_healthy
+    networks:
+      - agent-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
+    ports:
+      - "3000:80"
+    depends_on:
+      multimodal-agent:
+        condition: service_healthy
     networks:
       - agent-net
 
