@@ -20,7 +20,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        'mono': ['"JetBrains Mono"', 'monospace'],
+        mono: ['"JetBrains Mono"', 'monospace'],
+        display: ['"Rajdhani"', '"JetBrains Mono"', 'sans-serif'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -56,19 +57,28 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))'
         },
-        // Rocky carapace brown & stone accents
-        rocky: {
-          50: '#fbf7f4',
-          100: '#f5eee7',
-          200: '#ebdcd0',
-          300: '#dbc1ad',
-          400: '#c59f84',
-          500: '#b48263',
-          600: '#9e6d50',
-          700: '#80543f',
-          800: '#684536',
-          900: '#54392e',
-          950: '#2c1c15',
+        // Obsidian base — the dark, near-black surface of the interface
+        obsidian: {
+          950: '#08080A',
+          925: '#0D0C0E',
+          900: '#131214',
+          850: '#1A1816',
+          800: '#211E1A',
+          700: '#2C2822',
+        },
+        // Xenonite gold — refined metallic accent, used sparingly
+        gold: {
+          600: '#A9843A',
+          500: '#C9A24E',
+          400: '#D9B76B',
+          300: '#E8CB93',
+          200: '#F2E0BC',
+        },
+        // Warm ink — off-white text tuned warm rather than stark white
+        ink: {
+          100: '#EDE6D8',
+          400: '#B4AA9B',
+          600: '#7C7364',
         },
       },
       borderRadius: {
@@ -76,14 +86,31 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)'
       },
+      boxShadow: {
+        'glass': '0 20px 60px -20px rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(232, 203, 147, 0.08)',
+        'glow-gold': '0 0 0 1px rgba(201, 162, 78, 0.35), 0 8px 30px -8px rgba(201, 162, 78, 0.25)',
+        'glow-gold-sm': '0 0 16px -2px rgba(201, 162, 78, 0.35)',
+      },
       keyframes: {
         'fade-in': {
           '0%': { opacity: '0', transform: 'translateY(6px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' }
         },
+        // Slow, smooth breathing glow — used in place of blinking/bouncing
+        // indicators anywhere the interface needs to show "in progress".
+        breathe: {
+          '0%, 100%': { opacity: '0.45' },
+          '50%': { opacity: '1' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.25s ease-out',
+        'breathe': 'breathe 2.4s ease-in-out infinite',
+        'shimmer': 'shimmer 2.6s linear infinite',
       }
     }
   },

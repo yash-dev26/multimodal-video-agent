@@ -424,7 +424,7 @@ const Index = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#0c0a09] text-stone-100 font-mono relative w-full">
+    <div className="min-h-screen bg-obsidian-950 text-ink-100 font-mono relative w-full">
       <BackgroundAnimation />
 
       {/* Main Chat Area with right padding for fixed sidebar */}
@@ -470,3 +470,6 @@ const Index = () => {
 };
 
 export default Index;
+
+
+

@@ -17,24 +17,22 @@ const Message = ({ content, isUser, timestamp, fileUrl, fileType, clipPath }: Me
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-fade-in`}>
       <div
-        className={`max-w-[700px] w-full p-4 rounded-lg font-mono ${
-          isUser
-            ? 'bg-[#1e1915] border border-[#382b22] text-stone-100'
-            : 'bg-[#16120f] border border-[#3d2e24] text-stone-200'
+        className={`max-w-[700px] w-full p-4 rounded-lg font-mono glass-panel ${
+          isUser ? 'text-ink-100' : 'text-ink-100/90'
         }`}
       >
         <div
           className={`flex items-center gap-2 text-xs mb-2 ${
-            isUser ? 'text-stone-400' : 'text-[#c59f84]'
+            isUser ? 'text-ink-400' : 'text-gold-300'
           }`}
         >
           {!isUser && (
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 bg-[#b48263] rounded-full"></div>
-              <span className="font-bold">ROCKY</span>
+              <div className="w-2 h-2 rounded-full bg-gold-400 shadow-glow-gold-sm" />
+              <span className="font-semibold tracking-wide">ROCKY</span>
             </div>
           )}
-          {isUser && <span className="font-bold">GRACE</span>}
+          {isUser && <span className="font-semibold tracking-wide">GRACE</span>}
         </div>
 
         {fileUrl && (
@@ -43,14 +41,14 @@ const Message = ({ content, isUser, timestamp, fileUrl, fileType, clipPath }: Me
               <img
                 src={fileUrl}
                 alt="Uploaded"
-                className="max-w-full h-auto rounded border border-[#382b22]"
+                className="max-w-full h-auto rounded-md border border-gold-500/20"
                 style={{ maxHeight: '300px' }}
               />
             ) : fileType === 'video' ? (
               <video
                 src={fileUrl}
                 controls
-                className="max-w-full h-auto rounded border border-[#382b22]"
+                className="max-w-full h-auto rounded-md border border-gold-500/20"
                 style={{ maxHeight: '300px' }}
               />
             ) : null}
@@ -60,7 +58,7 @@ const Message = ({ content, isUser, timestamp, fileUrl, fileType, clipPath }: Me
         {clipPath && (
           <div className="mb-3">
             {clipError ? (
-              <div className="flex items-center gap-2 text-xs text-stone-500 border border-[#382b22] rounded p-2">
+              <div className="flex items-center gap-2 text-xs text-ink-400 border gold-hairline rounded-md p-2">
                 <span>⚠</span>
                 <span>Clip unavailable — backend may be offline.</span>
               </div>
@@ -68,7 +66,7 @@ const Message = ({ content, isUser, timestamp, fileUrl, fileType, clipPath }: Me
               <video
                 src={getMediaUrl(clipPath)}
                 controls
-                className="max-w-full h-auto rounded border border-[#382b22]"
+                className="max-w-full h-auto rounded-md border border-gold-500/20"
                 style={{ maxHeight: '300px' }}
                 onError={() => setClipError(true)}
               />
@@ -77,7 +75,7 @@ const Message = ({ content, isUser, timestamp, fileUrl, fileType, clipPath }: Me
         )}
 
         <p className="leading-relaxed break-words whitespace-pre-line text-sm">{content}</p>
-        <div className="text-xs mt-2 opacity-50 text-stone-400">
+        <div className="text-xs mt-2 text-ink-600">
           {timestamp.toLocaleTimeString()}
         </div>
       </div>
