@@ -116,7 +116,6 @@ const VideoSidebar = ({
           )}
         </Button>
 
-        {/* Processing status — smooth spinner + progress bar, no flashing */}
         {isProcessingVideo && (
           <div className="mt-4 p-4 glass-panel-raised rounded-lg">
             <div className="flex flex-col items-center space-y-3">
@@ -140,89 +139,74 @@ const VideoSidebar = ({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-5">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {uploadedVideos.map((video) => {
           const isActive = activeVideo?.id === video.id;
           const isProcessing = video.processingStatus === 'in_progress';
-          const isCompleted = video.processingStatus === 'completed';
           const isFailed = video.processingStatus === 'failed';
 
           return (
             <div key={video.id} className="relative group">
-              {/* Pentagonal, glass-styled video frame — Eridian pentaradial geometry.
-                  Outer div supplies a metallic gold "frame" via clip-path + gradient;
-                  inner div clips the video to the same shape. */}
               <div
-                className={`pentagon-frame transition-[filter] duration-300 ${
+                className={`relative aspect-video rounded-md overflow-hidden border transition-colors duration-200 ${
                   isActive
-                    ? ''
+                    ? 'border-gold-400 shadow-glow-gold-sm'
                     : isFailed
-                    ? 'opacity-70 saturate-50'
-                    : isCompleted
-                    ? ''
-                    : 'opacity-90'
+                    ? 'border-red-400/40'
+                    : 'border-ink-700 group-hover:border-gold-400/50'
                 }`}
-                style={{
-                  filter: isActive
-                    ? 'drop-shadow(0 0 14px rgba(201, 162, 78, 0.45))'
-                    : undefined,
-                }}
               >
-                <div className="pentagon-frame-inner aspect-[4/5] relative">
-                  <video
-                    id={`video-${video.id}`}
-                    src={video.url}
-                    className={`w-full h-full object-cover cursor-pointer transition-all duration-300 ${
-                      isActive ? '' : 'grayscale hover:grayscale-0'
-                    }`}
-                    onClick={(e) => handleVideoClick(video, e.currentTarget)}
-                  />
+                <video
+                  id={`video-${video.id}`}
+                  src={video.url}
+                  className={`w-full h-full object-cover cursor-pointer transition-opacity duration-200 ${
+                    isActive ? '' : 'opacity-80 group-hover:opacity-100'
+                  }`}
+                  onClick={(e) => handleVideoClick(video, e.currentTarget)}
+                />
 
-                  {/* Processing overlay */}
-                  {isProcessing && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-obsidian-950/75">
-                      <div className="text-center">
-                        <Loader2 className="w-7 h-7 text-gold-300 animate-spin mx-auto mb-2" />
-                        <div className="text-[11px] text-gold-200">Processing…</div>
-                      </div>
+                {isProcessing && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-obsidian-950/75">
+                    <div className="text-center">
+                      <Loader2 className="w-6 h-6 text-gold-300 animate-spin mx-auto mb-1.5" />
+                      <div className="text-[11px] text-gold-200">Processing…</div>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Hover play overlay */}
-                  {!isProcessing && (
-                    <div
-                      className="absolute inset-0 flex items-center justify-center bg-obsidian-950/45 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const videoElement = document.getElementById(
-                          `video-${video.id}`
-                        ) as HTMLVideoElement;
-                        if (videoElement) {
-                          handleVideoClick(video, videoElement);
-                        }
-                      }}
-                    >
-                      <div className="bg-gradient-to-b from-gold-400 to-gold-600 rounded-full p-2 shadow-glow-gold-sm">
-                        <Play className="w-4 h-4 text-obsidian-950 fill-obsidian-950 ml-0.5" />
-                      </div>
+                {!isProcessing && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center bg-obsidian-950/40 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const videoElement = document.getElementById(
+                        `video-${video.id}`
+                      ) as HTMLVideoElement;
+                      if (videoElement) {
+                        handleVideoClick(video, videoElement);
+                      }
+                    }}
+                  >
+                    <div className="bg-gold-400 rounded-full p-2">
+                      <Play className="w-4 h-4 text-obsidian-950 fill-obsidian-950 ml-0.5" />
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveVideo(video.id);
+                  }}
+                  size="icon"
+                  variant="secondary"
+                  className="absolute top-1 right-1 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
               </div>
 
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemoveVideo(video.id);
-                }}
-                size="icon"
-                variant="secondary"
-                className="absolute top-1 right-4 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X className="w-3 h-3" />
-              </Button>
-
-              <div className="px-2 mt-1.5">
+              <div className="px-1 mt-1.5">
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-ink-100 truncate flex-1">{video.file.name}</p>
                   {getStatusIcon(video.processingStatus)}
