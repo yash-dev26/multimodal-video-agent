@@ -15,7 +15,7 @@ from loguru import logger
 from multimodal_agent.config import get_settings
 from multimodal_agent.agent.checkpointer import checkpointer_context
 from multimodal_agent.agent.graph.graph import build_graph
-from multimodal_agent.models import AssistantMessageResponse, ProcessVideoRequest, ProcessVideoResponse, ResetMemoryResponse, UserMessageRequest, VideoUploadResponse
+from multimodal_agent.models import AssistantMessageResponse, ProcessVideoRequest, ProcessVideoResponse, ResetMemoryRequest, ResetMemoryResponse, UserMessageRequest, VideoUploadResponse
 
 settings = get_settings()
 
@@ -127,40 +127,87 @@ async def process_video(request: ProcessVideoRequest, bg_tasks: BackgroundTasks,
 
 @app.post("/chat", response_model=AssistantMessageResponse)
 async def chat(request: UserMessageRequest, fastapi_request: Request):
-    graph = fastapi_request.app.state.graph
+    graph = getattr(fastapi_request.app.state, "graph", None)
+    if graph is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Agent is still initializing. Please retry in a moment.",
+        )
+
     thread_id = request.thread_id or str(uuid4())
-    if not thread_id:
-        raise HTTPException(status_code=400, detail="No thread ID provided")
-    result = await graph.ainvoke(
-        {
-            "messages": [{"role": "user", "content": request.message}],
-            "video_path": request.video_path,
-            "image_base64": request.image_base64,
-        },
-        config={"configurable": {"thread_id": thread_id}},
-    )
+
+    # Normalize path separators so the same video_path works on Windows
+    # development (backslashes) and Linux/Docker (forward slashes).
+    video_path = request.video_path
+    if video_path:
+        video_path = video_path.replace("\\", "/")
+
+    try:
+        result = await graph.ainvoke(
+            {
+                "messages": [{"role": "user", "content": request.message}],
+                "video_path": video_path,
+                "image_base64": request.image_base64,
+            },
+            config={"configurable": {"thread_id": thread_id}},
+        )
+    except Exception as exc:
+        logger.error(f"Graph invocation failed for thread {thread_id}: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Agent encountered an error: {exc}",
+        )
+
+    last_message = result["messages"][-1]
     return AssistantMessageResponse(
-        message=result["messages"][-1].content,
+        message=last_message.content,
         clip_path=result.get("clip_path"),
         thread_id=thread_id,
     )
 
 
 @app.post("/reset-memory")
-async def reset_memory(thread_id: str, fastapi_request: Request):
+async def reset_memory(
+    fastapi_request: Request,
+    body: ResetMemoryRequest | None = None,
+    thread_id: str | None = None,
+):
     """
     Reset the memory of the agent for a given thread.
+    Accepts ``thread_id`` from either a JSON body (``{"thread_id": "..."}```)
+    or as a plain query parameter so both invocation styles work.
     """
-    checkpointer = fastapi_request.app.state.graph.checkpointer
+    graph = getattr(fastapi_request.app.state, "graph", None)
+    if graph is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Agent is still initializing. Please retry in a moment.",
+        )
+
+    # Resolve thread_id from body first, then fall back to query param.
+    resolved_thread_id = (body.thread_id if body else None) or thread_id
+    if not resolved_thread_id:
+        raise HTTPException(status_code=400, detail="thread_id is required.")
+
+    checkpointer = graph.checkpointer
     delete = getattr(checkpointer, "adelete_thread", None) or getattr(checkpointer, "delete_thread", None)
     if delete is None:
-        raise HTTPException(
-            status_code=501,
-            detail=f"{type(checkpointer).__name__} does not support deleting a thread's checkpoint.",
+        # Not all checkpointer implementations support deletion.
+        # Return a graceful no-op instead of HTTP 501 so the UI doesn't break.
+        logger.warning(
+            f"{type(checkpointer).__name__} does not support thread deletion — "
+            "memory reset skipped."
         )
-    result = delete(thread_id)
-    if hasattr(result, "__await__"):
-        await result
+        return ResetMemoryResponse(message="Memory reset is not supported by the current checkpointer.")
+
+    try:
+        result = delete(resolved_thread_id)
+        if hasattr(result, "__await__"):
+            await result
+    except Exception as exc:
+        logger.error(f"Failed to reset memory for thread {resolved_thread_id}: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to reset memory: {exc}")
+
     return ResetMemoryResponse(message="Memory reset successfully")
 
 

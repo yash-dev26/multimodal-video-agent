@@ -37,6 +37,10 @@ class ResetMemoryResponse(BaseModel):
     message: str
 
 
+class ResetMemoryRequest(BaseModel):
+    thread_id: str
+
+
 class VideoUploadResponse(BaseModel):
     message: str
     video_path: str | None = None
