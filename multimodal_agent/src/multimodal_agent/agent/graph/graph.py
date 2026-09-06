@@ -19,9 +19,11 @@ from multimodal_agent.agent.llm import (
     build_finalize_llm,
 )
 
-# Tools available directly via POST /process-video shouldn't also be
-# reachable through the chat tool-loop
-DISABLED_CHAT_TOOLS = {"process_video"}
+# Tools available directly via POST /process-video (and now DELETE /videos)
+# shouldn't also be reachable through the chat tool-loop -- these are
+# internal lifecycle operations, not something the chat LLM should invoke
+# on its own initiative.
+DISABLED_CHAT_TOOLS = {"process_video", "remove_video"}
 
 
 async def build_graph(checkpointer):

@@ -8,6 +8,7 @@ import TypingIndicator from '@/components/TypingIndicator';
 import VideoSidebar from '@/components/VideoSidebar';
 import {
   ApiError,
+  deleteVideo,
   getTaskStatus,
   getMediaUrl,
   processVideo,
@@ -44,8 +45,17 @@ interface UploadedVideo {
   processingStatus?: 'pending' | 'in_progress' | 'completed' | 'failed';
 }
 
+// A version of UploadedVideo that can actually survive localStorage — the
+// real `File` object and blob `url` can't be serialized/restored, so we
+// persist a stand-in and reconstruct a placeholder File on load.
+type PersistedVideo = Omit<UploadedVideo, 'file' | 'url' | 'timestamp'> & {
+  fileName: string;
+  timestamp: string;
+};
+
 // ─── Local storage keys ───────────────────────────────────────────────────────
 const THREAD_ID_KEY = 'rocky_thread_id';
+const VIDEOS_KEY = 'rocky_uploaded_videos';
 
 // ─── Offline fallback persona ─────────────────────────────────────────────────
 const getOfflineRockyResponse = (
@@ -63,6 +73,42 @@ const getOfflineRockyResponse = (
   return `Good, good, good. I understand: "${userMsg}". Fist my bump! Amaze!`;
 };
 
+// FIX (P2 - browser refresh doesn't genuinely restore processing state):
+// `uploadedVideos` used to live only in useState, so a real refresh (not
+// just Vite HMR) always started from an empty array — the "resume polling
+// on mount" effect further down had nothing to resume. These two helpers
+// hydrate from / persist to localStorage instead.
+const loadPersistedVideos = (): UploadedVideo[] => {
+  try {
+    const raw = localStorage.getItem(VIDEOS_KEY);
+    if (!raw) return [];
+    const persisted: PersistedVideo[] = JSON.parse(raw);
+    return persisted.map((p) => ({
+      ...p,
+      timestamp: new Date(p.timestamp),
+      // The original File/blob URL can't be restored after a refresh —
+      // this placeholder still lets the sidebar show the name and status.
+      file: new File([], p.fileName),
+      url: '',
+    }));
+  } catch {
+    return [];
+  }
+};
+
+const persistVideos = (videos: UploadedVideo[]) => {
+  try {
+    const persisted: PersistedVideo[] = videos.map(({ file, url, timestamp, ...rest }) => ({
+      ...rest,
+      fileName: file.name,
+      timestamp: timestamp.toISOString(),
+    }));
+    localStorage.setItem(VIDEOS_KEY, JSON.stringify(persisted));
+  } catch {
+    // Storage may be unavailable (private browsing, quota exceeded) — silently ignore
+  }
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const Index = () => {
@@ -77,7 +123,7 @@ const Index = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null);
-  const [uploadedVideos, setUploadedVideos] = useState<UploadedVideo[]>([]);
+  const [uploadedVideos, setUploadedVideos] = useState<UploadedVideo[]>(loadPersistedVideos);
   const [activeVideo, setActiveVideo] = useState<UploadedVideo | null>(null);
   const [isProcessingVideo, setIsProcessingVideo] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -116,6 +162,12 @@ const Index = () => {
     }
   }, [threadId]);
 
+  // Persist the video list whenever it changes, so a real browser refresh
+  // has something to restore from (see loadPersistedVideos above).
+  useEffect(() => {
+    persistVideos(uploadedVideos);
+  }, [uploadedVideos]);
+
   // Auto-select the last completed video when none is active
   useEffect(() => {
     if (!activeVideo && uploadedVideos.length > 0) {
@@ -129,57 +181,78 @@ const Index = () => {
   // ── Poll task status for in-progress videos ──────────────────────────────
   const polledIds = useRef<Set<string>>(new Set());
 
+  // FIX (P2 - progress reaches 100% before processing actually finishes):
+  // pollTaskStatus now returns a Promise that resolves once the task
+  // actually settles (completed/failed/timed out), and accepts an optional
+  // onProgress callback so callers who care about live progress (i.e. the
+  // upload flow below) can drive their progress bar off real task state
+  // instead of guessing "we just enqueued it, call it 100%".
   const pollTaskStatus = useCallback(
-    async (video: UploadedVideo) => {
-      if (!video.taskId || polledIds.current.has(video.id)) return;
+    (video: UploadedVideo, onProgress?: (pct: number) => void): Promise<void> => {
+      if (!video.taskId || polledIds.current.has(video.id)) return Promise.resolve();
       polledIds.current.add(video.id);
 
-      const MAX_POLLS = 120; // max 10 min at 5 s intervals
-      let polls = 0;
+      return new Promise((resolve) => {
+        const MAX_POLLS = 120; // max 10 min at 5 s intervals
+        let polls = 0;
+        let pct = 75; // upload + enqueue already accounted for by the caller
 
-      const interval = setInterval(async () => {
-        polls++;
-        if (polls > MAX_POLLS) {
-          clearInterval(interval);
-          polledIds.current.delete(video.id);
-          setUploadedVideos((prev) =>
-            prev.map((v) =>
-              v.id === video.id ? { ...v, processingStatus: 'failed' } : v,
-            ),
-          );
-          toast.error(`Processing timed out for "${video.file.name}".`);
-          return;
-        }
-
-        try {
-          const data = await getTaskStatus(video.taskId!);
-          if (data.status === 'completed' || data.status === 'failed') {
+        const interval = setInterval(async () => {
+          polls++;
+          if (polls > MAX_POLLS) {
             clearInterval(interval);
             polledIds.current.delete(video.id);
             setUploadedVideos((prev) =>
               prev.map((v) =>
-                v.id === video.id ? { ...v, processingStatus: data.status as UploadedVideo['processingStatus'] } : v,
+                v.id === video.id ? { ...v, processingStatus: 'failed' } : v,
               ),
             );
-            if (data.status === 'completed') {
-              toast.success(`"${video.file.name}" is ready for querying.`);
-            } else {
-              toast.error(`Processing failed for "${video.file.name}".`);
-            }
+            toast.error(`Processing timed out for "${video.file.name}".`);
+            resolve();
+            return;
           }
-        } catch {
-          // Network hiccup — keep polling; don't explode
-        }
-      }, 5_000);
+
+          try {
+            const data = await getTaskStatus(video.taskId!);
+
+            if (data.status === 'in_progress') {
+              pct = Math.min(95, pct + 2);
+              onProgress?.(pct);
+            }
+
+            if (data.status === 'completed' || data.status === 'failed') {
+              clearInterval(interval);
+              polledIds.current.delete(video.id);
+              setUploadedVideos((prev) =>
+                prev.map((v) =>
+                  v.id === video.id ? { ...v, processingStatus: data.status as UploadedVideo['processingStatus'] } : v,
+                ),
+              );
+              if (data.status === 'completed') {
+                onProgress?.(100);
+                toast.success(`"${video.file.name}" is ready for querying.`);
+              } else {
+                toast.error(`Processing failed for "${video.file.name}".`);
+              }
+              resolve();
+            }
+          } catch {
+            // Network hiccup — keep polling; don't explode
+          }
+        }, 5_000);
+      });
     },
     [],
   );
 
-  // Start polling for any in-progress videos already in state (e.g. after hot reload)
+  // Start polling for any in-progress videos already in state (e.g. after
+  // a browser refresh — see loadPersistedVideos above — or a hot reload).
   useEffect(() => {
     uploadedVideos
       .filter((v) => v.processingStatus === 'in_progress' && v.taskId)
-      .forEach(pollTaskStatus);
+      .forEach((v) => {
+        void pollTaskStatus(v);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -318,22 +391,24 @@ const Index = () => {
     const localUrl = URL.createObjectURL(file);
 
     try {
-      // 1. Upload the raw file with real progress tracking (0 → 80 %)
+      // 1. Upload the raw file with real progress tracking (0 → 70 %)
       const uploadData = await uploadVideo(file, (pct) => {
-        // Map upload progress to 0–80 % of the overall bar
-        setUploadProgress(Math.round(pct * 0.8));
+        setUploadProgress(Math.round(pct * 0.7));
       });
 
       if (!uploadData.video_path) {
         throw new ApiError(500, 'Server returned no video_path after upload.');
       }
 
-      setUploadProgress(80);
+      setUploadProgress(70);
 
       // 2. Kick off background indexing
       const processData = await processVideo(uploadData.video_path);
 
-      setUploadProgress(90);
+      // 75%: the job is enqueued, but indexing has NOT finished yet — the
+      // bar used to jump straight to 100 here. It now stays under 100
+      // until the polled task status actually reports "completed".
+      setUploadProgress(75);
 
       const newVideo: UploadedVideo = {
         id: uploadData.video_path,
@@ -347,12 +422,12 @@ const Index = () => {
 
       setUploadedVideos((prev) => [...prev, newVideo]);
       setActiveVideo(newVideo);
-      setUploadProgress(100);
-
-      // 3. Start polling for completion in the background
-      pollTaskStatus(newVideo);
 
       toast.info(`"${file.name}" uploaded — indexing in background…`);
+
+      // 3. Keep the progress panel open, driven by the real background
+      // task, until it genuinely finishes (or times out).
+      await pollTaskStatus(newVideo, (pct) => setUploadProgress(pct));
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -389,10 +464,24 @@ const Index = () => {
 
   const removeVideo = (videoId: string) => {
     const videoToRemove = uploadedVideos.find((v) => v.id === videoId);
-    if (videoToRemove) {
+    if (!videoToRemove) return;
+
+    if (videoToRemove.url) {
       URL.revokeObjectURL(videoToRemove.url);
-      setUploadedVideos((prev) => prev.filter((v) => v.id !== videoId));
-      if (activeVideo?.id === videoId) setActiveVideo(null);
+    }
+    setUploadedVideos((prev) => prev.filter((v) => v.id !== videoId));
+    if (activeVideo?.id === videoId) setActiveVideo(null);
+
+    // FIX (P2 - removing a video from the UI doesn't remove backend/index
+    // data): previously this only mutated local React state, leaving the
+    // uploaded file and its Pixeltable index on the backend forever. This
+    // now calls the new DELETE /videos/{name} endpoint to actually clean
+    // up server-side state. The UI update above stays optimistic/instant;
+    // we just surface a toast if the backend cleanup fails.
+    if (videoToRemove.videoPath) {
+      deleteVideo(videoToRemove.videoPath).catch(() => {
+        toast.error(`Removed "${videoToRemove.file.name}" locally, but the backend index may still exist.`);
+      });
     }
   };
 
@@ -470,6 +559,3 @@ const Index = () => {
 };
 
 export default Index;
-
-
-

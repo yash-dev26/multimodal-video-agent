@@ -1,5 +1,6 @@
 import shutil
-from contextlib import AsyncExitStack, asynccontextmanager
+import sqlite3
+from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from enum import Enum
 from pathlib import Path
 from uuid import uuid4
@@ -24,6 +25,15 @@ settings = get_settings()
 SHARED_MEDIA_DIR = Path("shared_media")
 SHARED_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
+# ── Background task status store ────────────────────────────────────────────
+# FIX (P1 - background task state only in memory): a plain in-process dict
+# doesn't survive a restart/redeploy and isn't shared across workers, so a
+# client polling /task-status/{task_id} can get a false NOT_FOUND for a task
+# that really did complete. SQLite gives us a durable, file-backed store with
+# no extra infra dependency; swap for Redis/Postgres if you run multiple
+# hosts without a shared filesystem.
+TASK_DB_PATH = SHARED_MEDIA_DIR / ".task_status.db"
+
 
 class TaskStatus(str, Enum):
     PENDING = "pending"
@@ -33,15 +43,51 @@ class TaskStatus(str, Enum):
     NOT_FOUND = "not_found"
 
 
+def _init_task_db() -> None:
+    with sqlite3.connect(TASK_DB_PATH) as conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS task_status ("
+            "task_id TEXT PRIMARY KEY, status TEXT NOT NULL, updated_at TEXT NOT NULL)"
+        )
+        conn.commit()
+
+
+@contextmanager
+def _task_db():
+    conn = sqlite3.connect(TASK_DB_PATH)
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+def set_task_status(task_id: str, status: TaskStatus) -> None:
+    with _task_db() as conn:
+        conn.execute(
+            "INSERT INTO task_status (task_id, status, updated_at) VALUES (?, ?, datetime('now')) "
+            "ON CONFLICT(task_id) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at",
+            (task_id, status.value),
+        )
+        conn.commit()
+
+
+def get_task_status_value(task_id: str) -> str:
+    with _task_db() as conn:
+        row = conn.execute(
+            "SELECT status FROM task_status WHERE task_id = ?", (task_id,)
+        ).fetchone()
+    return row[0] if row else TaskStatus.NOT_FOUND.value
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     lifespan context manager for FastAPI app. Sets up the checkpointer and builds the graph.
     """
+    _init_task_db()
     async with AsyncExitStack() as stack:
         checkpointer = await stack.enter_async_context(checkpointer_context())
         app.state.graph, app.state.mcp_prompts = await build_graph(checkpointer)
-        app.state.bg_task_states = dict()
         yield
 
 
@@ -87,40 +133,53 @@ async def health(fastapi_request: Request):
 
 
 @app.get("/task-status/{task_id}")
-async def get_task_status(task_id: str, fastapi_request: Request):
-    status = fastapi_request.app.state.bg_task_states.get(task_id, TaskStatus.NOT_FOUND)
-    return {"task_id": task_id, "status": status}
+async def get_task_status(task_id: str):
+    return {"task_id": task_id, "status": get_task_status_value(task_id)}
 
 
 @app.post("/process-video")
-async def process_video(request: ProcessVideoRequest, bg_tasks: BackgroundTasks, fastapi_request: Request):
+async def process_video(request: ProcessVideoRequest, bg_tasks: BackgroundTasks):
     """
     Process a video and return the results
     """
     task_id = str(uuid4())
-    bg_task_states = fastapi_request.app.state.bg_task_states
 
     async def background_process_video(video_path: str, task_id: str):
         """
         Background task to process the video
         """
-        bg_task_states[task_id] = TaskStatus.IN_PROGRESS
+        set_task_status(task_id, TaskStatus.IN_PROGRESS)
 
         if not Path(video_path).exists():
             logger.error(f"Video file not found: {video_path}")
-            bg_task_states[task_id] = TaskStatus.FAILED
+            set_task_status(task_id, TaskStatus.FAILED)
             return
 
         try:
             mcp_client = Client(settings.MCP_SERVER)
             async with mcp_client:
-                _ = await mcp_client.call_tool("process_video", {"video_path": request.video_path})
+                result = await mcp_client.call_tool("process_video", {"video_path": video_path})
         except Exception as e:
             logger.error(f"Error processing video {video_path}: {e}")
-            bg_task_states[task_id] = TaskStatus.FAILED
+            set_task_status(task_id, TaskStatus.FAILED)
             return
-        bg_task_states[task_id] = TaskStatus.COMPLETED
 
+        # FIX (P0 - API marks failed processing as completed): `process_video`
+        # returns bool -- True only if the video is actually indexed and
+        # ready. The absence of an exception here is NOT the same as
+        # success: both a tool-level error (`result.is_error`) and a clean
+        # `False` return value (`result.data`) must be checked explicitly,
+        # otherwise a failed re-encode/indexing pass gets reported to the
+        # frontend as COMPLETED.
+        succeeded = (not result.is_error) and bool(result.data)
+        if not succeeded:
+            logger.error(f"process_video reported failure for {video_path}: {result.content}")
+            set_task_status(task_id, TaskStatus.FAILED)
+            return
+
+        set_task_status(task_id, TaskStatus.COMPLETED)
+
+    set_task_status(task_id, TaskStatus.PENDING)
     bg_tasks.add_task(background_process_video, request.video_path, task_id)
     return ProcessVideoResponse(message="Task enqueued for processing", task_id=task_id)
 
@@ -214,21 +273,71 @@ async def reset_memory(
 @app.post("/upload-video", response_model=VideoUploadResponse)
 async def upload_video(file: UploadFile = File(...)):
     """
-    Upload a video and return the path
+    Upload a video, replacing any existing file with the same name and
+    invalidating its stale index (if one existed) so it gets re-processed.
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file uploaded")
 
+    video_path = SHARED_MEDIA_DIR / file.filename
+    # FIX (P1 - same filename doesn't replace existing video): the previous
+    # implementation skipped writing entirely if a file with this name
+    # already existed, so a re-upload under the same name kept serving the
+    # old bytes while still reporting "success".
+    replacing_existing = video_path.exists()
+
     try:
-        video_path = SHARED_MEDIA_DIR / file.filename
-        if not video_path.exists():
-            with open(video_path, "wb") as f:
-                shutil.copyfileobj(file.file, f)
+        with open(video_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+
+        if replacing_existing:
+            # The old file's Pixeltable index (if any) now points at stale
+            # content. Drop it so the next /process-video call re-indexes
+            # from scratch instead of short-circuiting on
+            # VideoProcessor._check_if_exists(), which only reasons about
+            # the path string and would otherwise happily reuse the old
+            # embeddings for the new file.
+            try:
+                mcp_client = Client(settings.MCP_SERVER)
+                async with mcp_client:
+                    await mcp_client.call_tool("remove_video", {"video_path": str(video_path)})
+            except Exception as e:
+                logger.warning(f"Could not invalidate stale index for {video_path}: {e}")
 
         return VideoUploadResponse(message="Video uploaded successfully", video_path=str(video_path))
     except Exception as e:
         logger.error(f"Error uploading video: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/videos/{video_name}")
+async def delete_video(video_name: str):
+    """
+    Remove a video's index and its uploaded file from shared_media.
+
+    FIX (P2 - removing a video from the UI doesn't remove backend/index
+    data): the frontend used to only drop the video from its own React
+    state, leaving the uploaded file and its Pixeltable index behind
+    forever. This endpoint gives the UI a real deletion primitive to call.
+    """
+    # Path(...).name strips any directory components to prevent path traversal.
+    video_path = SHARED_MEDIA_DIR / Path(video_name).name
+
+    index_removed = False
+    try:
+        mcp_client = Client(settings.MCP_SERVER)
+        async with mcp_client:
+            result = await mcp_client.call_tool("remove_video", {"video_path": str(video_path)})
+        index_removed = (not result.is_error) and bool(result.data)
+    except Exception as e:
+        logger.error(f"Error removing video index for {video_path}: {e}")
+
+    file_removed = False
+    if video_path.exists():
+        video_path.unlink()
+        file_removed = True
+
+    return {"index_removed": index_removed, "file_removed": file_removed}
 
 
 @app.get("/media/{file_path:path}")

@@ -12,6 +12,7 @@ from video_mcp_server.tools import (
     get_video_clip_from_image,
     get_video_clip_from_user_query,
     process_video,
+    remove_video,
 )
 
 
@@ -22,6 +23,14 @@ def add_mcp_tools(mcp: FastMCP) -> None:
             name="process_video",
             description="Process a video file and prepare it for searching.",
             tags={"video", "process"},
+        )
+    )
+    mcp.add_tool(
+        Tool.from_function(
+            fn=remove_video,
+            name="remove_video",
+            description="Drop a video's cached index so it will be fully re-processed next time.",
+            tags={"video", "remove"},
         )
     )
     mcp.add_tool(

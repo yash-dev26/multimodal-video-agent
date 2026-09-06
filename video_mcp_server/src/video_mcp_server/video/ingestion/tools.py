@@ -13,8 +13,14 @@ from typing import Optional
 logger = loguru.logger.bind(name="VideoTools")
 
 
-def extract_video_clip(video_path: str, start_time: float, end_time: float, output_path: str = None) -> VideoFileClip:
-    # BUG: MoviePy crashes mid clip trimming. When it's got videos > N+5 minutes. Switching to ffmpeg for reliability.
+def extract_video_clip(video_path: str, start_time: float, end_time: float, output_path: str = None) -> str:
+    """Extract a clip from ``video_path`` between ``start_time`` and
+    ``end_time`` using ffmpeg directly (MoviePy's own trimming crashes on
+    videos longer than a few minutes, so ffmpeg does the actual encoding).
+
+    Returns:
+        str: Path to the extracted clip file.
+    """
 
     if start_time >= end_time:
         raise ValueError("start_time must be less than end_time")
@@ -53,7 +59,21 @@ def extract_video_clip(video_path: str, start_time: float, end_time: float, outp
     if process.returncode != 0:
         raise IOError(f"ffmpeg failed to extract clip (exit {process.returncode}): {stderr.decode('utf-8', errors='ignore')}")
     logger.debug(f"FFmpeg output: {stdout.decode('utf-8', errors='ignore')}")
-    return VideoFileClip(output_path)
+
+    # FIX (P2 - generated VideoFileClip isn't explicitly closed): callers
+    # only ever need the output path (see tools.py), but the previous
+    # implementation returned a live VideoFileClip, which holds an ffmpeg
+    # reader process/file handle open until .close() is called. Nothing
+    # downstream ever closed it, so the object (and its handle) leaked
+    # until garbage collection got around to it — non-deterministic, and
+    # a real risk of file-descriptor/subprocess exhaustion under load.
+    # We open it only long enough to confirm/read the path, then close it
+    # immediately and return a plain string.
+    clip = VideoFileClip(output_path)
+    try:
+        return clip.filename
+    finally:
+        clip.close()
 
 
 def encode_image(image: str | Image.Image) -> str:

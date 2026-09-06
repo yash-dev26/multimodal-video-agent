@@ -21,6 +21,16 @@ from multimodal_agent.agent.state import AgentState
 # (see video_mcp_server/tools.py — ask_question_about_video returns text).
 CLIP_PRODUCING_TOOLS = {"get_video_clip_from_user_query", "get_video_clip_from_image"}
 
+# Every video tool requires an actively selected/processed video_path.
+# FIX (P1 - image query with no active/processed video enters a failure
+# path): the router decides `needs_tool` purely from the message text and
+# never checks whether a video is actually available, so without this
+# guard a tool call for one of these would be dispatched with
+# video_path=None and fail deep inside the MCP server's registry lookup
+# (previously a raw TypeError; see registry.get_table's fix) instead of
+# producing a clean, friendly response.
+VIDEO_REQUIRED_TOOLS = CLIP_PRODUCING_TOOLS | {"ask_question_about_video"}
+
 
 def _inject_context_args(tool_calls: list[dict], video_path: str | None, image_base64: str | None) -> list[dict]:
     """
@@ -89,12 +99,32 @@ def make_tool_agent_node(llm_with_tools, tool_use_system_prompt: str):
         response: AIMessage = llm_with_tools.invoke(history)
 
         if response.tool_calls:
+            video_path = state.get("video_path")
+
+            # A video-scoped tool call with no active video can never
+            # succeed. Fail fast here with a friendly, on-persona message
+            # instead of dispatching to ToolNode and hitting an error deep
+            # inside the MCP server.
+            missing_video_calls = [
+                c["name"] for c in response.tool_calls if c["name"] in VIDEO_REQUIRED_TOOLS and not video_path
+            ]
+            if missing_video_calls:
+                logger.info(
+                    f"Skipping tool call(s) {missing_video_calls}: no active video selected."
+                )
+                updates["messages"] = [
+                    AIMessage(
+                        content="I don't have a video to search yet, Grace — please upload or select one first! Amaze!"
+                    )
+                ]
+                return updates
+
             logger.info(f"Tool calls requested: {[c['name'] for c in response.tool_calls]}")
             response = response.model_copy(
                 update={
                     "tool_calls": _inject_context_args(
                         response.tool_calls,
-                        video_path=state.get("video_path"),
+                        video_path=video_path,
                         image_base64=state.get("image_base64"),
                     )
                 }

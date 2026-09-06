@@ -1,12 +1,10 @@
-.PHONY: build-multimodal-frontend build-multimodal-mcp build-multimodal-agent build-all
+.PHONY: build-project start-project stop-project
 
-build-multimodal-frontend:
-	docker build -t multimodal-frontend ./frontend
+build-project:
+	docker-compose build
 
-build-multimodal-mcp:
-	docker build -t video-mcp-server ./video_mcp_server
+start-project:
+	docker-compose up -d
 
-build-multimodal-agent:
-	docker build -t multimodal-agent ./multimodal_agent
-
-build-all: build-multimodal-frontend build-multimodal-mcp build-multimodal-agent
+stop-project:
+	docker-compose down
