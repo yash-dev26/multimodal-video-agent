@@ -8,7 +8,7 @@ settings = get_settings()
 
 
 def configure() -> None:
-    if settings.LANGSMITH_API_KEY and settings.LANGSMITH_PROJECT:
+    if settings.LANGSMITH_TRACING and settings.LANGSMITH_API_KEY and settings.LANGSMITH_PROJECT:
         os.environ["LANGSMITH_API_KEY"] = settings.LANGSMITH_API_KEY
         os.environ["LANGSMITH_PROJECT"] = settings.LANGSMITH_PROJECT
         os.environ["LANGSMITH_TRACING"] = "true"

@@ -1,0 +1,78 @@
+name: E2E (manual)
+
+# Deliberately workflow_dispatch ONLY -- no schedule, no push/PR trigger.
+# E1/E2 cost real Groq/OpenAI/embedding tokens and take minutes (full
+# Pixeltable ingestion + real LLM reasoning) for a signal that changes
+# rarely -- mostly when prompts, model config, or the ingestion pipeline
+# itself are touched. Running on every push or nightly would burn money
+# and CI minutes re-verifying things that didn't change.
+#
+# workflow_dispatch also cannot be triggered from a fork's pull_request
+# context, so real secrets are inherently safe here without extra
+# `pull_request_target`-style guarding.
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you running this? (shows up in the run log)"
+        required: false
+        default: "Manual E2E run"
+
+jobs:
+  e2e:
+    name: Full-stack E2E (real models)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log trigger reason
+        run: |
+          echo "Reason: ${{ github.event.inputs.reason }}"
+
+      - name: Copy environment templates
+        run: |
+          cp multimodal_agent/.env.example multimodal_agent/.env
+          cp video_mcp_server/.env.example video_mcp_server/.env
+
+      # docker-compose.yml wires both services via `env_file:
+      # ./<service>/.env` -- NOT `environment: - KEY=${KEY}` shell
+      # interpolation -- so Compose only ever reads secrets from these
+      # literal files on disk. Setting them on this workflow's own process
+      # environment (e.g. via `env:` on the `docker compose up` step)
+      # would silently do nothing; they must be written into the files
+      # themselves before `docker compose up` runs.
+      #
+      # CHECKPOINTER_DB_URL is deliberately left blank here: docker-compose.yml
+      # sets it directly via multimodal-agent's `environment:` block (pointing
+      # at the compose-internal postgres service), and Compose's `environment:`
+      # takes precedence over `env_file:` for the same key, so the value from
+      # .env.example is overridden regardless.
+      - name: Inject real secrets into env files
+        run: |
+          sed -i "s|^GROQ_API_KEY=.*|GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}|" multimodal_agent/.env
+          sed -i "s|^LANGSMITH_API_KEY=.*|LANGSMITH_API_KEY=${{ secrets.LANGSMITH_API_KEY }}|" multimodal_agent/.env
+          sed -i "s|^OPENAI_API_KEY=.*|OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}|" video_mcp_server/.env
+          sed -i "s|^LANGSMITH_API_KEY=.*|LANGSMITH_API_KEY=${{ secrets.LANGSMITH_API_KEY }}|" video_mcp_server/.env
+
+      - name: Bring up full stack
+        run: docker compose up -d --build
+
+      - name: Wait for all services to become healthy
+        run: ./scripts/wait-for-healthy.sh 180
+
+      - name: Install E2E test dependencies
+        run: pip install -r e2e/requirements.txt
+
+      - name: Run E2E suite (E1, E2)
+        run: pytest e2e/ -v
+        env:
+          AGENT_BASE_URL: http://localhost:8080
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --tail=500
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
