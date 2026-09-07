@@ -60,6 +60,9 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements-test.txt
+          if [ "${{ matrix.service }}" = "multimodal_agent" ]; then
+            pip install -r ../video_mcp_server/requirements.txt
+          fi
 
       - name: Ruff (only if the project defines a config for it)
         run: |
@@ -72,7 +75,7 @@ jobs:
 
       - name: Unit tests (U1-U5)
         env:
-          PYTHONPATH: src
+          PYTHONPATH: src:.:../video_mcp_server/src
         run: pytest tests/unit -v
 
   # ── Integration: video_mcp_server side (I1, I10) -- no Postgres needed ──
@@ -142,10 +145,11 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements-test.txt
+          pip install -r ../video_mcp_server/requirements.txt
 
       - name: Integration tests (I2-I9)
         env:
-          PYTHONPATH: src
+          PYTHONPATH: src:.:../video_mcp_server/src
         run: pytest tests/integration -v
 
   # ── Single required status check for branch protection ──────────────────
