@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "video-mcp-server"
 version = "0.1.0"
 description = "FastMCP server that owns video ingestion, indexing, multimodal search, and clip extraction."
-readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=2.0",
