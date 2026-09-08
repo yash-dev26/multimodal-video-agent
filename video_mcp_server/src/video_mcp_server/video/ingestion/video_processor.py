@@ -1,6 +1,6 @@
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import pixeltable as pxt
 from loguru import logger
@@ -27,7 +27,7 @@ class VideoProcessor:
     def __init__(
         self,
     ):
-        self._video_mapping_idx: Optional[str] = None
+        self._video_mapping_idx: str | None = None
 
         logger.info(
             f"VideoProcessor initialized"
@@ -39,8 +39,10 @@ class VideoProcessor:
         self._video_mapping_idx = video_name
         exists = self._check_if_exists(video_name)
         if exists:
-            logger.info(f"Video index '{self._video_mapping_idx}' already exists and is ready for use.")
-            cached_table: "CachedTable" = registry.get_table(self._video_mapping_idx)
+            logger.info(
+                f"Video index '{self._video_mapping_idx}' already exists and is ready for use."
+            )
+            cached_table: CachedTable = registry.get_table(self._video_mapping_idx)
             self.pxt_cache = cached_table.video_cache
             self.video_table = cached_table.video_table
             self.frames_view = cached_table.frames_view
@@ -153,7 +155,9 @@ class VideoProcessor:
         self.frames_view = pxt.create_view(
             self.frames_view_name,
             self.video_table,
-            iterator=FrameIterator.create(video=self.video_table.video, num_frames=settings.SPLIT_FRAMES_COUNT),
+            iterator=FrameIterator.create(
+                video=self.video_table.video, num_frames=settings.SPLIT_FRAMES_COUNT
+            ),
             if_exists="ignore",
         )
         self.frames_view.add_computed_column(

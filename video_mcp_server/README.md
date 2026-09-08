@@ -146,11 +146,12 @@ for image matches) to `extract_video_clip()`.
 
 ```python
 class CachedTableMetadata(BaseModel):
-    video_name: str          # registry key — the video_path it was indexed under
-    video_cache: str          # Pixeltable namespace, e.g. "cache_<uuid>"
-    video_table: str          # "<cache>.table"
-    frames_view: str          # "<video_table>_frames"
-    audio_chunks_view: str    # "<video_table>_audio_chunks"
+    video_name: str  # registry key — the video_path it was indexed under
+    video_cache: str  # Pixeltable namespace, e.g. "cache_<uuid>"
+    video_table: str  # "<cache>.table"
+    frames_view: str  # "<video_table>_frames"
+    audio_chunks_view: str  # "<video_table>_audio_chunks"
+
 
 class CachedTable:
     """Hydrated handles: pxt.get_table() resolved for each of the above,

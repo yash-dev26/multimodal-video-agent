@@ -1,8 +1,9 @@
 # Windows does not support uvicorn's default event loop, so we need to use a different one.
 
 import asyncio
-import sys
 import selectors
+import sys
+
 import uvicorn
 
 if sys.platform == "win32":

@@ -8,12 +8,12 @@ import loguru
 from moviepy import VideoFileClip
 from PIL import Image
 
-from typing import Optional
-
 logger = loguru.logger.bind(name="VideoTools")
 
 
-def extract_video_clip(video_path: str, start_time: float, end_time: float, output_path: str = None) -> str:
+def extract_video_clip(
+    video_path: str, start_time: float, end_time: float, output_path: str = None
+) -> str:
     """Extract a clip from ``video_path`` between ``start_time`` and
     ``end_time`` using ffmpeg directly (MoviePy's own trimming crashes on
     videos longer than a few minutes, so ffmpeg does the actual encoding).
@@ -57,7 +57,9 @@ def extract_video_clip(video_path: str, start_time: float, end_time: float, outp
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     if process.returncode != 0:
-        raise IOError(f"ffmpeg failed to extract clip (exit {process.returncode}): {stderr.decode('utf-8', errors='ignore')}")
+        raise OSError(
+            f"ffmpeg failed to extract clip (exit {process.returncode}): {stderr.decode('utf-8', errors='ignore')}"
+        )
     logger.debug(f"FFmpeg output: {stdout.decode('utf-8', errors='ignore')}")
 
     # FIX (P2 - generated VideoFileClip isn't explicitly closed): callers
@@ -105,8 +107,8 @@ def encode_image(image: str | Image.Image) -> str:
 
         return base64.b64encode(image_str).decode("utf-8")
 
-    except (FileNotFoundError, IOError) as e:
-        raise IOError(f"Failed to process image: {str(e)}")
+    except (OSError, FileNotFoundError) as e:
+        raise OSError(f"Failed to process image: {str(e)}")
 
 
 def decode_image(base64_string: str) -> Image.Image:
@@ -128,10 +130,11 @@ def decode_image(base64_string: str) -> Image.Image:
 
         return Image.open(image_buffer)
 
-    except (ValueError, IOError) as e:
-        raise IOError(f"Failed to decode image: {str(e)}")
+    except (OSError, ValueError) as e:
+        raise OSError(f"Failed to decode image: {str(e)}")
 
-def _try_ffmpeg_pass(command: list, output_path: Path) -> Optional[str]:
+
+def _try_ffmpeg_pass(command: list, output_path: Path) -> str | None:
     """Run an ffmpeg command and return output_path as a str if PyAV can open the result, else None."""
     logger.info(f"Attempting: {' '.join(command)}")
     try:
@@ -151,7 +154,7 @@ def _try_ffmpeg_pass(command: list, output_path: Path) -> Optional[str]:
         return None
 
 
-def re_encode_video(video_path: str) -> Optional[str]:
+def re_encode_video(video_path: str) -> str | None:
     """
     Re-encode a video file to ensure compatibility with PyAV.
 
@@ -183,5 +186,15 @@ def re_encode_video(video_path: str) -> Optional[str]:
         return result
 
     logger.info(f"Remux didn't fix {video_path}, falling back to a full re-encode.")
-    reencode_command = ["ffmpeg", "-y", "-i", video_path, "-c:v", "libx264", "-c:a", "aac", str(reencoded_path)]
+    reencode_command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        video_path,
+        "-c:v",
+        "libx264",
+        "-c:a",
+        "aac",
+        str(reencoded_path),
+    ]
     return _try_ffmpeg_pass(reencode_command, reencoded_path)

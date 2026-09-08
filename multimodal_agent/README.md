@@ -136,14 +136,14 @@ Environment variables (`.env`, see `.env.example`):
 
 ```python
 class AgentState(TypedDict):
-    messages: Annotated[list, add_messages]   # checkpointed chat turn history
+    messages: Annotated[list, add_messages]  # checkpointed chat turn history
     video_path: Optional[str]
     image_base64: Optional[str]
     thread_id: str
 
-    needs_tool: Optional[bool]                # set by router
+    needs_tool: Optional[bool]  # set by router
 
-    tool_call_count: int                      # tool-loop bookkeeping
+    tool_call_count: int  # tool-loop bookkeeping
     last_tool_name: Optional[str]
 
     response_kind: Literal["general", "video_clip", None]

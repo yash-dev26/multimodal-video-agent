@@ -2,22 +2,22 @@
 Builds and compiles the agent's LangGraph.
 """
 
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from multimodal_agent.agent.state import AgentState
-from multimodal_agent.agent.graph.nodes.router import make_router_node
-from multimodal_agent.agent.graph.nodes.general_response import make_general_response_node
-from multimodal_agent.agent.graph.nodes.tool_agent import make_tool_agent_node
 from multimodal_agent.agent.graph.nodes.finalize import make_finalize_node
+from multimodal_agent.agent.graph.nodes.general_response import make_general_response_node
 from multimodal_agent.agent.graph.nodes.persist_memory import persist_memory_node
-from multimodal_agent.agent.mcp import setup_mcp
+from multimodal_agent.agent.graph.nodes.router import make_router_node
+from multimodal_agent.agent.graph.nodes.tool_agent import make_tool_agent_node
 from multimodal_agent.agent.llm import (
+    build_finalize_llm,
+    build_general_llm,
     build_routing_llm,
     build_tool_use_llm,
-    build_general_llm,
-    build_finalize_llm,
 )
+from multimodal_agent.agent.mcp import setup_mcp
+from multimodal_agent.agent.state import AgentState
 
 # Tools available directly via POST /process-video (and now DELETE /videos)
 # shouldn't also be reachable through the chat tool-loop -- these are
@@ -41,7 +41,9 @@ async def build_graph(checkpointer):
     mcp_tools = [t for t in mcp_tools if getattr(t, "name", None) not in DISABLED_CHAT_TOOLS]
 
     router_node = make_router_node(build_routing_llm(), mcp_prompts["routing_system_prompt"])
-    general_response_node = make_general_response_node(build_general_llm(), mcp_prompts["general_system_prompt"])
+    general_response_node = make_general_response_node(
+        build_general_llm(), mcp_prompts["general_system_prompt"]
+    )
     tool_agent_node = make_tool_agent_node(
         build_tool_use_llm().bind_tools(mcp_tools),
         mcp_prompts["tool_use_system_prompt"],

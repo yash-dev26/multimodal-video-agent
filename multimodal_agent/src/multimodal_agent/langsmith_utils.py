@@ -23,7 +23,9 @@ def configure() -> None:
         return
 
     if not settings.LANGSMITH_API_KEY:
-        logger.warning("LANGSMITH_TRACING=true but LANGSMITH_API_KEY is not set -- tracing will not start.")
+        logger.warning(
+            "LANGSMITH_TRACING=true but LANGSMITH_API_KEY is not set -- tracing will not start."
+        )
         return
 
     # LANGCHAIN_* is what langchain-core's tracing callback manager actually

@@ -13,10 +13,7 @@ def configure() -> None:
         os.environ["LANGSMITH_PROJECT"] = settings.LANGSMITH_PROJECT
         os.environ["LANGSMITH_TRACING"] = "true"
 
-        logger.info(
-            f"LangSmith configured successfully for project "
-            f"'{settings.LANGSMITH_PROJECT}'"
-        )
+        logger.info(f"LangSmith configured successfully for project '{settings.LANGSMITH_PROJECT}'")
     else:
         logger.warning(
             "LANGSMITH_API_KEY and LANGSMITH_PROJECT are not set. "

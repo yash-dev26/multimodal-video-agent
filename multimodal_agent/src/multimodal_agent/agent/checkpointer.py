@@ -27,8 +27,7 @@ async def checkpointer_context():
 
     if not settings.CHECKPOINTER_DB_URL:
         raise ValueError(
-            "CHECKPOINTER_DB_URL must be set, e.g. "
-            "postgresql://user:password@host:5432/dbname"
+            "CHECKPOINTER_DB_URL must be set, e.g. postgresql://user:password@host:5432/dbname"
         )
 
     async with AsyncPostgresSaver.from_conn_string(settings.CHECKPOINTER_DB_URL) as saver:

@@ -42,7 +42,6 @@ import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from asgi_lifespan import LifespanManager  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
-
 from tests.fakes.fake_mcp_server import MCPScript, run_fake_mcp_server  # noqa: E402
 
 

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 from langsmith import traceable
 
@@ -28,7 +28,7 @@ class VideoSearchEngine:
         self.video_name = video_name
 
     @traceable(name="search_by_speech", run_type="retriever")
-    def search_by_speech(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def search_by_speech(self, query: str, top_k: int) -> list[dict[str, Any]]:
         """Search video clips by speech similarity.
 
         Args:
@@ -59,7 +59,7 @@ class VideoSearchEngine:
         ]
 
     @traceable(name="search_by_image", run_type="retriever")
-    def search_by_image(self, image_base64: str, top_k: int) -> List[Dict[str, Any]]:
+    def search_by_image(self, image_base64: str, top_k: int) -> list[dict[str, Any]]:
         """Search video clips by image similarity.
 
         Args:
@@ -82,7 +82,9 @@ class VideoSearchEngine:
 
         return [
             {
-                "start_time": max(0.0, entry["pos_msec"] / 1000.0 - settings.DELTA_SECONDS_FRAME_INTERVAL),
+                "start_time": max(
+                    0.0, entry["pos_msec"] / 1000.0 - settings.DELTA_SECONDS_FRAME_INTERVAL
+                ),
                 "end_time": entry["pos_msec"] / 1000.0 + settings.DELTA_SECONDS_FRAME_INTERVAL,
                 "similarity": float(entry["similarity"]),
             }
@@ -90,7 +92,7 @@ class VideoSearchEngine:
         ]
 
     @traceable(name="search_by_caption", run_type="retriever")
-    def search_by_caption(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def search_by_caption(self, query: str, top_k: int) -> list[dict[str, Any]]:
         """Search video clips by caption similarity.
 
         Args:
@@ -112,14 +114,16 @@ class VideoSearchEngine:
 
         return [
             {
-                "start_time": max(0.0, entry["pos_msec"] / 1000.0 - settings.DELTA_SECONDS_FRAME_INTERVAL),
+                "start_time": max(
+                    0.0, entry["pos_msec"] / 1000.0 - settings.DELTA_SECONDS_FRAME_INTERVAL
+                ),
                 "end_time": entry["pos_msec"] / 1000.0 + settings.DELTA_SECONDS_FRAME_INTERVAL,
                 "similarity": float(entry["similarity"]),
             }
             for entry in results.limit(top_k).collect()
         ]
 
-    def get_speech_info(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def get_speech_info(self, query: str, top_k: int) -> list[dict[str, Any]]:
         """Get speech text information based on query similarity.
 
         Args:
@@ -146,7 +150,7 @@ class VideoSearchEngine:
         ]
 
     @traceable(name="get_caption_info", run_type="retriever")
-    def get_caption_info(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def get_caption_info(self, query: str, top_k: int) -> list[dict[str, Any]]:
         """Get caption information based on query similarity.
 
         Args:

@@ -31,5 +31,9 @@ def table_info(table_name: str) -> str:
         return f"Video index '{table_name}' does not exist."
     # Registry entries are either a JSON string (just-registered, in-memory)
     # or a CachedTableMetadata (loaded from disk) — never a plain dict.
-    table = CachedTable.from_metadata(json.loads(registry[table_name]) if isinstance(registry[table_name], str) else registry[table_name])
+    table = CachedTable.from_metadata(
+        json.loads(registry[table_name])
+        if isinstance(registry[table_name], str)
+        else registry[table_name]
+    )
     return table.describe()

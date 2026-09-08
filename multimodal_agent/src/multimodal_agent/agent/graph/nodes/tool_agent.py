@@ -7,13 +7,13 @@ Design note: the LLM is never told the real `video_path` / `image_base64` —
 those come from app state (the user's own upload), not something the model
 should be trusted to supply an argument for — so this node injects them
 into the tool call's args itself, after the LLM decides which tool to call
-but before ToolNode executes it. 
+but before ToolNode executes it.
 """
 
 from typing import Any
 
-from loguru import logger
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from loguru import logger
 
 from multimodal_agent.agent.state import AgentState
 
@@ -32,7 +32,9 @@ CLIP_PRODUCING_TOOLS = {"get_video_clip_from_user_query", "get_video_clip_from_i
 VIDEO_REQUIRED_TOOLS = CLIP_PRODUCING_TOOLS | {"ask_question_about_video"}
 
 
-def _inject_context_args(tool_calls: list[dict], video_path: str | None, image_base64: str | None) -> list[dict]:
+def _inject_context_args(
+    tool_calls: list[dict], video_path: str | None, image_base64: str | None
+) -> list[dict]:
     """
     Fill in the args the LLM can't/shouldn't supply itself.
 
@@ -79,7 +81,10 @@ def _find_new_clip_path(messages: list) -> str | None:
     for message in reversed(messages):
         if not isinstance(message, ToolMessage):
             break  # walked past this round's tool results
-        if message.name in CLIP_PRODUCING_TOOLS and getattr(message, "status", "success") != "error":
+        if (
+            message.name in CLIP_PRODUCING_TOOLS
+            and getattr(message, "status", "success") != "error"
+        ):
             return _extract_tool_text(message.content)
     return None
 
@@ -93,7 +98,9 @@ def make_tool_agent_node(llm_with_tools, tool_use_system_prompt: str):
             logger.info(f"Tool loop produced clip: {new_clip_path}")
             updates["clip_path"] = new_clip_path
 
-        system_prompt = tool_use_system_prompt.format(is_image_provided=bool(state.get("image_base64")))
+        system_prompt = tool_use_system_prompt.format(
+            is_image_provided=bool(state.get("image_base64"))
+        )
         history = [SystemMessage(content=system_prompt), *state["messages"]]
 
         response: AIMessage = llm_with_tools.invoke(history)
@@ -106,7 +113,9 @@ def make_tool_agent_node(llm_with_tools, tool_use_system_prompt: str):
             # instead of dispatching to ToolNode and hitting an error deep
             # inside the MCP server.
             missing_video_calls = [
-                c["name"] for c in response.tool_calls if c["name"] in VIDEO_REQUIRED_TOOLS and not video_path
+                c["name"]
+                for c in response.tool_calls
+                if c["name"] in VIDEO_REQUIRED_TOOLS and not video_path
             ]
             if missing_video_calls:
                 logger.info(

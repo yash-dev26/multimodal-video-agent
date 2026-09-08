@@ -19,14 +19,16 @@ def _as_prompt_text(prompt_messages) -> str:
 
 
 async def setup_mcp():
-    mcp_client = MultiServerMCPClient({
-        "video_mcp_server": {
-            "transport": "http",
-            "url": settings.MCP_SERVER,
-        },
-        # room to add more MCP servers later without touching agent code:
-        # "transcription": {"transport": "http", "url": "..."},
-    })
+    mcp_client = MultiServerMCPClient(
+        {
+            "video_mcp_server": {
+                "transport": "http",
+                "url": settings.MCP_SERVER,
+            },
+            # room to add more MCP servers later without touching agent code:
+            # "transcription": {"transport": "http", "url": "..."},
+        }
+    )
 
     mcp_tools = await mcp_client.get_tools()
 

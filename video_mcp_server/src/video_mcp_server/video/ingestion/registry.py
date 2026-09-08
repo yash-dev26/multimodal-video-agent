@@ -2,7 +2,6 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
 
 from loguru import logger
 
@@ -11,10 +10,10 @@ from video_mcp_server.video.ingestion.models import CachedTable, CachedTableMeta
 
 logger = logger.bind(name="TableRegistry")
 
-VIDEO_INDEXES_REGISTRY: Dict[str, CachedTableMetadata] = {}
+VIDEO_INDEXES_REGISTRY: dict[str, CachedTableMetadata] = {}
 
 
-def get_registry() -> Dict[str, CachedTableMetadata]:
+def get_registry() -> dict[str, CachedTableMetadata]:
     """
     Get the global video index registry.
 
@@ -32,7 +31,7 @@ def get_registry() -> Dict[str, CachedTableMetadata]:
             if registry_files:
                 latest_file = max(registry_files)
                 latest_registry = Path(DEFAULT_CACHED_TABLES_REGISTRY_DIR) / latest_file
-                with open(str(latest_registry), "r") as f:
+                with open(str(latest_registry)) as f:
                     VIDEO_INDEXES_REGISTRY = json.load(f)
                     for key, value in VIDEO_INDEXES_REGISTRY.items():
                         if isinstance(value, str):
@@ -147,13 +146,17 @@ def get_table(video_name: str) -> CachedTable:
         ValueError: If no video was specified, or it hasn't been indexed.
     """
     if not video_name:
-        raise ValueError("No video specified — a video must be uploaded and processed before searching.")
+        raise ValueError(
+            "No video specified — a video must be uploaded and processed before searching."
+        )
 
     registry = get_registry()
     logger.info(f"Registry: {registry}")
     metadata = registry.get(video_name)
     if metadata is None:
-        raise ValueError(f"Video index '{video_name}' not found in registry — has it been processed yet?")
+        raise ValueError(
+            f"Video index '{video_name}' not found in registry — has it been processed yet?"
+        )
 
     if isinstance(metadata, str):
         metadata = json.loads(metadata)

@@ -13,10 +13,18 @@ from fastapi.staticfiles import StaticFiles
 from fastmcp.client import Client
 from loguru import logger
 
-from multimodal_agent.config import get_settings
 from multimodal_agent.agent.checkpointer import checkpointer_context
 from multimodal_agent.agent.graph.graph import build_graph
-from multimodal_agent.models import AssistantMessageResponse, ProcessVideoRequest, ProcessVideoResponse, ResetMemoryRequest, ResetMemoryResponse, UserMessageRequest, VideoUploadResponse
+from multimodal_agent.config import get_settings
+from multimodal_agent.models import (
+    AssistantMessageResponse,
+    ProcessVideoRequest,
+    ProcessVideoResponse,
+    ResetMemoryRequest,
+    ResetMemoryResponse,
+    UserMessageRequest,
+    VideoUploadResponse,
+)
 
 settings = get_settings()
 
@@ -249,7 +257,9 @@ async def reset_memory(
         raise HTTPException(status_code=400, detail="thread_id is required.")
 
     checkpointer = graph.checkpointer
-    delete = getattr(checkpointer, "adelete_thread", None) or getattr(checkpointer, "delete_thread", None)
+    delete = getattr(checkpointer, "adelete_thread", None) or getattr(
+        checkpointer, "delete_thread", None
+    )
     if delete is None:
         # Not all checkpointer implementations support deletion.
         # Return a graceful no-op instead of HTTP 501 so the UI doesn't break.
@@ -257,7 +267,9 @@ async def reset_memory(
             f"{type(checkpointer).__name__} does not support thread deletion — "
             "memory reset skipped."
         )
-        return ResetMemoryResponse(message="Memory reset is not supported by the current checkpointer.")
+        return ResetMemoryResponse(
+            message="Memory reset is not supported by the current checkpointer."
+        )
 
     try:
         result = delete(resolved_thread_id)
@@ -304,7 +316,9 @@ async def upload_video(file: UploadFile = File(...)):
             except Exception as e:
                 logger.warning(f"Could not invalidate stale index for {video_path}: {e}")
 
-        return VideoUploadResponse(message="Video uploaded successfully", video_path=str(video_path))
+        return VideoUploadResponse(
+            message="Video uploaded successfully", video_path=str(video_path)
+        )
     except Exception as e:
         logger.error(f"Error uploading video: {e}")
         raise HTTPException(status_code=500, detail=str(e))

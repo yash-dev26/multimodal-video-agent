@@ -1,6 +1,6 @@
 import base64
 import io
-from typing import List, Literal, Union
+from typing import Literal
 
 import pixeltable as pxt
 from PIL import Image
@@ -15,7 +15,9 @@ class CachedTableMetadata(BaseModel):
     video_name: str = Field(..., description="Name of the video")
     video_cache: str = Field(..., description="Path to the video cache")
     video_table: str = Field(..., description="Root video table")
-    frames_view: str = Field(..., description="Video frames which were split using a FPS and frame iterator")
+    frames_view: str = Field(
+        ..., description="Video frames which were split using a FPS and frame iterator"
+    )
     audio_chunks_view: str = Field(
         ...,
         description="After chunking audio, getting transcript and splitting it into sentences",
@@ -62,6 +64,7 @@ class CachedTable:
         """Returns a string describing the video table."""
         return f"Video index '{self.video_name}' info: {', '.join(self.video_table.columns)}"
 
+
 ######################################
 # Image Processing Models
 ######################################
@@ -100,7 +103,7 @@ class ImageUrlContent(BaseModel):
 
 class UserContent(BaseModel):
     role: Literal["user"] = "user"
-    content: List[Union[TextContent, ImageUrlContent]]
+    content: list[TextContent | ImageUrlContent]
 
     @classmethod
     def from_pair(cls, base64_image: str, prompt: str):

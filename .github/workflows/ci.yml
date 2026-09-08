@@ -62,17 +62,8 @@ jobs:
             pip install -e ../video_mcp_server
           fi
 
-      - name: Ruff (only if the project defines a config for it)
-        run: |
-          if [ -f pyproject.toml ] && grep -q "\[tool.ruff\]" pyproject.toml; then
-            pip install ruff
-            ruff check .
-          else
-            echo "No [tool.ruff] section found for ${{ matrix.service }} -- skipping lint."
-          fi
-
       - name: Unit tests (U1-U5)
-        run: python -m pytest tests/unit -v
+        run: pytest tests/unit -v
 
   # ── Integration: video_mcp_server side (I1, I10) -- no Postgres needed ──
   integration-mcp:
@@ -95,7 +86,7 @@ jobs:
         run: pip install -e ".[test]"
 
       - name: "Integration tests (I1: MCP contract, I10: concurrency)"
-        run: python -m pytest tests/integration -v
+        run: pytest tests/integration -v
 
   # ── Integration: multimodal_agent side (I2-I9) -- needs real Postgres ───
   # for the LangGraph checkpointer; everything else (LLMs, MCP) is faked.
@@ -137,7 +128,7 @@ jobs:
           pip install -e ../video_mcp_server
 
       - name: Integration tests (I2-I9)
-        run: python -m pytest tests/integration -v
+        run: pytest tests/integration -v
 
   # ── Single required status check for branch protection ──────────────────
   # Point branch protection at THIS job instead of the four above, so

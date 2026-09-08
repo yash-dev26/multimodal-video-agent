@@ -108,8 +108,12 @@ def get_video_clip_from_user_query(video_path: str, user_query: str) -> str:
     """
     search_engine = VideoSearchEngine(video_path)
 
-    speech_clips = search_engine.search_by_speech(user_query, settings.VIDEO_CLIP_SPEECH_SEARCH_TOP_K)
-    caption_clips = search_engine.search_by_caption(user_query, settings.VIDEO_CLIP_CAPTION_SEARCH_TOP_K)
+    speech_clips = search_engine.search_by_speech(
+        user_query, settings.VIDEO_CLIP_SPEECH_SEARCH_TOP_K
+    )
+    caption_clips = search_engine.search_by_caption(
+        user_query, settings.VIDEO_CLIP_CAPTION_SEARCH_TOP_K
+    )
 
     if not speech_clips and not caption_clips:
         raise ValueError(f"No matching clip found in '{video_path}' for query: {user_query!r}")

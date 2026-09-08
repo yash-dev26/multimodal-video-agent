@@ -20,7 +20,9 @@ def build_routing_llm() -> ChatGroq:
 
 
 def build_tool_use_llm() -> ChatGroq:
-    return ChatGroq(model=settings.GROQ_TOOL_USE_MODEL, api_key=settings.GROQ_API_KEY, temperature=0)
+    return ChatGroq(
+        model=settings.GROQ_TOOL_USE_MODEL, api_key=settings.GROQ_API_KEY, temperature=0
+    )
 
 
 def build_general_llm() -> ChatGroq:

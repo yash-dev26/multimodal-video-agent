@@ -35,18 +35,6 @@ test = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/multimodal_agent"]
 
-[tool.ruff]
-line-length = 100
-target-version = "py312"
-src = ["src", "tests"]
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
-ignore = []
-
-[tool.ruff.lint.isort]
-known-first-party = ["multimodal_agent"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

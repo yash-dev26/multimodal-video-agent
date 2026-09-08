@@ -56,7 +56,9 @@ def routing_system_prompt() -> str:
         prompt = client.pull_prompt(_prompt_id)
         return getattr(prompt, "template", str(prompt))
     except Exception:
-        logger.warning("Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt.")
+        logger.warning(
+            "Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt."
+        )
         try:
             client.push_prompt(_prompt_id, object=ROUTING_SYSTEM_PROMPT)
         except Exception:
@@ -70,7 +72,9 @@ def tool_use_system_prompt() -> str:
         prompt = client.pull_prompt(_prompt_id)
         return getattr(prompt, "template", str(prompt))
     except Exception:
-        logger.warning("Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt.")
+        logger.warning(
+            "Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt."
+        )
         try:
             client.push_prompt(_prompt_id, object=TOOL_USE_SYSTEM_PROMPT)
         except Exception:
@@ -84,7 +88,9 @@ def general_system_prompt() -> str:
         prompt = client.pull_prompt(_prompt_id)
         return getattr(prompt, "template", str(prompt))
     except Exception:
-        logger.warning("Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt.")
+        logger.warning(
+            "Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt."
+        )
         try:
             client.push_prompt(_prompt_id, object=GENERAL_SYSTEM_PROMPT)
         except Exception:

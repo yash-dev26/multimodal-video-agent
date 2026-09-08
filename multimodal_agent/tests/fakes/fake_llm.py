@@ -6,10 +6,10 @@ requests rather than within a single graph.ainvoke() call.
 import uuid
 
 import pytest
-
-from multimodal_agent.models import GeneralResponseModel, RoutingResponseModel
 from tests.fakes.fake_llm import FakeChatModel
 from tests.helpers import patch_llms
+
+from multimodal_agent.models import GeneralResponseModel, RoutingResponseModel
 
 
 def _recording_general_llm(canned_messages: list[str]) -> tuple[FakeChatModel, list[list]]:
@@ -22,7 +22,11 @@ def _recording_general_llm(canned_messages: list[str]) -> tuple[FakeChatModel, l
     HumanMessage -- see router.py -- so it can't be used to prove this).
     """
     seen_histories: list[list] = []
-    llm = FakeChatModel(structured={GeneralResponseModel: [GeneralResponseModel(message=m) for m in canned_messages]})
+    llm = FakeChatModel(
+        structured={
+            GeneralResponseModel: [GeneralResponseModel(message=m) for m in canned_messages]
+        }
+    )
 
     real_with_structured_output = llm.with_structured_output
 
@@ -52,7 +56,12 @@ async def test_thread_persists_across_turns(monkeypatch, make_client, mcp_script
     patch_llms(
         monkeypatch,
         router=FakeChatModel(
-            structured={RoutingResponseModel: [RoutingResponseModel(tool_use=False), RoutingResponseModel(tool_use=False)]}
+            structured={
+                RoutingResponseModel: [
+                    RoutingResponseModel(tool_use=False),
+                    RoutingResponseModel(tool_use=False),
+                ]
+            }
         ),
         general=general_llm,
     )
@@ -60,11 +69,15 @@ async def test_thread_persists_across_turns(monkeypatch, make_client, mcp_script
     thread_id = str(uuid.uuid4())
 
     async with make_client() as client:
-        r1 = await client.post("/chat", json={"message": "my favorite color is blue", "thread_id": thread_id})
+        r1 = await client.post(
+            "/chat", json={"message": "my favorite color is blue", "thread_id": thread_id}
+        )
         assert r1.status_code == 200
         assert r1.json()["thread_id"] == thread_id
 
-        r2 = await client.post("/chat", json={"message": "what's my favorite color?", "thread_id": thread_id})
+        r2 = await client.post(
+            "/chat", json={"message": "what's my favorite color?", "thread_id": thread_id}
+        )
         assert r2.status_code == 200
         assert r2.json()["message"] == "Yes, I remember — blue!"
 
@@ -93,7 +106,12 @@ async def test_reset_memory_clears_checkpoint(monkeypatch, make_client, mcp_scri
     patch_llms(
         monkeypatch,
         router=FakeChatModel(
-            structured={RoutingResponseModel: [RoutingResponseModel(tool_use=False), RoutingResponseModel(tool_use=False)]}
+            structured={
+                RoutingResponseModel: [
+                    RoutingResponseModel(tool_use=False),
+                    RoutingResponseModel(tool_use=False),
+                ]
+            }
         ),
         general=general_llm,
     )
@@ -101,7 +119,9 @@ async def test_reset_memory_clears_checkpoint(monkeypatch, make_client, mcp_scri
     thread_id = str(uuid.uuid4())
 
     async with make_client() as client:
-        r1 = await client.post("/chat", json={"message": "remember this: pineapple", "thread_id": thread_id})
+        r1 = await client.post(
+            "/chat", json={"message": "remember this: pineapple", "thread_id": thread_id}
+        )
         assert r1.status_code == 200
 
         reset_resp = await client.post("/reset-memory", json={"thread_id": thread_id})

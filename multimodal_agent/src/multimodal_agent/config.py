@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEFAULT_SHARED_MEDIA_DIR = Path(__file__).resolve().parents[3] / "shared_media"
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_file_encoding="utf-8")
 
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
     # MCP Configuration
     MCP_SERVER: str = "http://video-mcp-server:9090/mcp"
 
-    # Checkpointer Configuration 
+    # Checkpointer Configuration
     CHECKPOINTER_DB_URL: str
 
     # Shared video files used by the agent and video MCP server.

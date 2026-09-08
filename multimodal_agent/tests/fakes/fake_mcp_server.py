@@ -21,7 +21,6 @@ from pathlib import Path
 import pytest
 import uvicorn
 from fastmcp import FastMCP
-
 from tests.helpers import patch_llms_noop
 
 
@@ -52,17 +51,23 @@ def _build_fake_mcp(script: MCPScript) -> FastMCP:
 
     @mcp.tool(name="get_video_clip_from_user_query")
     def get_video_clip_from_user_query(video_path: str, user_query: str) -> str:
-        script.record("get_video_clip_from_user_query", {"video_path": video_path, "user_query": user_query})
+        script.record(
+            "get_video_clip_from_user_query", {"video_path": video_path, "user_query": user_query}
+        )
         return ""
 
     @mcp.tool(name="get_video_clip_from_image")
     def get_video_clip_from_image(video_path: str, user_image: str) -> str:
-        script.record("get_video_clip_from_image", {"video_path": video_path, "user_image": user_image})
+        script.record(
+            "get_video_clip_from_image", {"video_path": video_path, "user_image": user_image}
+        )
         return ""
 
     @mcp.tool(name="ask_question_about_video")
     def ask_question_about_video(video_path: str, user_query: str) -> str:
-        script.record("ask_question_about_video", {"video_path": video_path, "user_query": user_query})
+        script.record(
+            "ask_question_about_video", {"video_path": video_path, "user_query": user_query}
+        )
         return ""
 
     @mcp.prompt(name="routing_system_prompt")
@@ -123,7 +128,9 @@ async def _poll_until_settled(client, task_id: str, timeout_seconds: float = 5.0
             return status
         await asyncio.sleep(interval)
         elapsed += interval
-    raise AssertionError(f"Task {task_id} did not settle within {timeout_seconds}s (still pending/in_progress)")
+    raise AssertionError(
+        f"Task {task_id} did not settle within {timeout_seconds}s (still pending/in_progress)"
+    )
 
 
 @pytest.mark.asyncio
@@ -136,7 +143,9 @@ async def test_process_video_failure_reports_failed(monkeypatch, make_client, mc
     mcp_script.process_video_result = False
 
     async with make_client() as client:
-        resp = await client.post("/process-video", json={"video_path": "shared_media/bad_video.mp4"})
+        resp = await client.post(
+            "/process-video", json={"video_path": "shared_media/bad_video.mp4"}
+        )
         assert resp.status_code == 200
         task_id = resp.json()["task_id"]
 
@@ -158,7 +167,9 @@ async def test_reupload_same_filename_invalidates_index(monkeypatch, make_client
     filename = "duplicate_name.mp4"
 
     async with make_client() as client:
-        r1 = await client.post("/upload-video", files={"file": (filename, b"ORIGINAL BYTES", "video/mp4")})
+        r1 = await client.post(
+            "/upload-video", files={"file": (filename, b"ORIGINAL BYTES", "video/mp4")}
+        )
         assert r1.status_code == 200
         video_path = r1.json()["video_path"]
 
@@ -166,7 +177,8 @@ async def test_reupload_same_filename_invalidates_index(monkeypatch, make_client
         assert mcp_script.calls_to("remove_video") == []
 
         r2 = await client.post(
-            "/upload-video", files={"file": (filename, b"REPLACED BYTES - LONGER CONTENT", "video/mp4")}
+            "/upload-video",
+            files={"file": (filename, b"REPLACED BYTES - LONGER CONTENT", "video/mp4")},
         )
         assert r2.status_code == 200
         assert r2.json()["video_path"] == video_path
@@ -192,7 +204,9 @@ async def test_delete_video_cleans_file_and_index(monkeypatch, make_client, mcp_
     filename = "to_be_deleted.mp4"
 
     async with make_client() as client:
-        upload_resp = await client.post("/upload-video", files={"file": (filename, b"SOME VIDEO BYTES", "video/mp4")})
+        upload_resp = await client.post(
+            "/upload-video", files={"file": (filename, b"SOME VIDEO BYTES", "video/mp4")}
+        )
         video_path = upload_resp.json()["video_path"]
         assert Path(video_path).exists()
 

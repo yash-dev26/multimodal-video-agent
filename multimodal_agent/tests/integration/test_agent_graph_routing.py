@@ -6,7 +6,6 @@ Pure dict/logic -- no Pixeltable needed.
 """
 
 import pytest
-
 from video_mcp_server.video.ingestion import registry
 
 

@@ -55,7 +55,9 @@ def _poll_until_settled(client: httpx.Client, task_id: str) -> str:
             return status
         time.sleep(TASK_POLL_INTERVAL_SECONDS)
         elapsed += TASK_POLL_INTERVAL_SECONDS
-    raise AssertionError(f"Task {task_id} did not settle within {TASK_POLL_TIMEOUT_SECONDS}s")
+    raise AssertionError(
+        f"Task {task_id} did not settle within {TASK_POLL_TIMEOUT_SECONDS}s"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -67,7 +69,9 @@ def processed_video(client: httpx.Client) -> str:
     assert FIXTURE_VIDEO.exists(), f"Missing fixture video at {FIXTURE_VIDEO}"
 
     with open(FIXTURE_VIDEO, "rb") as f:
-        upload_resp = client.post("/upload-video", files={"file": ("e2e_fixture.mp4", f, "video/mp4")})
+        upload_resp = client.post(
+            "/upload-video", files={"file": ("e2e_fixture.mp4", f, "video/mp4")}
+        )
     upload_resp.raise_for_status()
     video_path = upload_resp.json()["video_path"]
 
@@ -139,8 +143,12 @@ def httpx_client_post_chat(client: httpx.Client, **payload) -> httpx.Response:
 def _assert_clip_is_playable(client: httpx.Client, clip_path: str) -> None:
     clip_filename = Path(clip_path).name
     media_resp = client.get(f"/media/{clip_filename}")
-    assert media_resp.status_code == 200, f"GET /media/{clip_filename} returned {media_resp.status_code}"
-    assert len(media_resp.content) > 1000, "Clip file is suspiciously small/empty -- likely a broken extraction"
+    assert media_resp.status_code == 200, (
+        f"GET /media/{clip_filename} returned {media_resp.status_code}"
+    )
+    assert len(media_resp.content) > 1000, (
+        "Clip file is suspiciously small/empty -- likely a broken extraction"
+    )
 
 
 # ---------------------------------------------------------------------------
