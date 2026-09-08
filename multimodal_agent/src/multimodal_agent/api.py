@@ -20,9 +20,9 @@ from multimodal_agent.models import AssistantMessageResponse, ProcessVideoReques
 
 settings = get_settings()
 
-# The shared_media directory is now created at startup if
-# it doesn't exist, instead of assuming the user created it manually.
-SHARED_MEDIA_DIR = Path("shared_media")
+# The agent and MCP server default to the same repository-level directory,
+# while Docker can override this with the mounted /app/shared_media path.
+SHARED_MEDIA_DIR = settings.SHARED_MEDIA_DIR
 SHARED_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Background task status store ────────────────────────────────────────────

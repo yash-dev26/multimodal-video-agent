@@ -1,6 +1,9 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEFAULT_SHARED_MEDIA_DIR = Path(__file__).resolve().parents[3] / "shared_media"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_file_encoding="utf-8")
@@ -25,6 +28,9 @@ class Settings(BaseSettings):
 
     # Checkpointer Configuration 
     CHECKPOINTER_DB_URL: str
+
+    # Shared video files used by the agent and video MCP server.
+    SHARED_MEDIA_DIR: Path = _DEFAULT_SHARED_MEDIA_DIR
 
     # Disable Nest Asyncio
     DISABLE_NEST_ASYNCIO: bool = True

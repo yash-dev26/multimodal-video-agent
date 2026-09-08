@@ -10,6 +10,8 @@ _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore", env_file_encoding="utf-8")
 
+    SHARED_MEDIA_DIR: Path = Path(__file__).resolve().parents[3] / "shared_media"
+
     # LANGSMITH Configuration 
     LANGSMITH_API_KEY: str
     LANGSMITH_TRACING: bool
@@ -17,7 +19,7 @@ class Settings(BaseSettings):
 
     # OPENAI Configuration 
     OPENAI_API_KEY: str
-    AUDIO_TRANSCRIPT_MODEL: str = "gpt-4o-mini-transcribe"
+    AUDIO_TRANSCRIPT_MODEL: str = "gpt-transcribe"
     IMAGE_CAPTION_MODEL: str = "gpt-4o-mini"
 
     # Video Ingestion Configuration 

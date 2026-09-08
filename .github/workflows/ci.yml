@@ -53,15 +53,13 @@ jobs:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: |
-            ${{ matrix.service }}/requirements.txt
-            ${{ matrix.service }}/requirements-test.txt
+            ${{ matrix.service }}/pyproject.toml
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install -r requirements-test.txt
+          pip install -e ".[test]"
           if [ "${{ matrix.service }}" = "multimodal_agent" ]; then
-            pip install -r ../video_mcp_server/requirements.txt
+            pip install -e ../video_mcp_server
           fi
 
       - name: Ruff (only if the project defines a config for it)
@@ -74,9 +72,7 @@ jobs:
           fi
 
       - name: Unit tests (U1-U5)
-        env:
-          PYTHONPATH: src:.:../video_mcp_server/src
-        run: pytest tests/unit -v
+        run: python -m pytest tests/unit -v
 
   # ── Integration: video_mcp_server side (I1, I10) -- no Postgres needed ──
   integration-mcp:
@@ -93,18 +89,13 @@ jobs:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: |
-            video_mcp_server/requirements.txt
-            video_mcp_server/requirements-test.txt
+            video_mcp_server/pyproject.toml
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements-test.txt
+        run: pip install -e ".[test]"
 
       - name: "Integration tests (I1: MCP contract, I10: concurrency)"
-        env:
-          PYTHONPATH: src
-        run: pytest tests/integration -v
+        run: python -m pytest tests/integration -v
 
   # ── Integration: multimodal_agent side (I2-I9) -- needs real Postgres ───
   # for the LangGraph checkpointer; everything else (LLMs, MCP) is faked.
@@ -138,19 +129,15 @@ jobs:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: |
-            multimodal_agent/requirements.txt
-            multimodal_agent/requirements-test.txt
+            multimodal_agent/pyproject.toml
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install -r requirements-test.txt
-          pip install -r ../video_mcp_server/requirements.txt
+          pip install -e ".[test]"
+          pip install -e ../video_mcp_server
 
       - name: Integration tests (I2-I9)
-        env:
-          PYTHONPATH: src:.:../video_mcp_server/src
-        run: pytest tests/integration -v
+        run: python -m pytest tests/integration -v
 
   # ── Single required status check for branch protection ──────────────────
   # Point branch protection at THIS job instead of the four above, so

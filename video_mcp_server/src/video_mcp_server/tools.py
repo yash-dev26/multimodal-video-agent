@@ -14,6 +14,7 @@ from video_mcp_server.video.video_search_service import VideoSearchEngine
 
 logger = logger.bind(name="MCPVideoTools")
 settings = get_settings()
+settings.SHARED_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 # FIX (P1 - shared mutable VideoProcessor can race during concurrent
 # processing): VideoProcessor stores all per-video ingestion state
@@ -123,8 +124,7 @@ def get_video_clip_from_user_query(video_path: str, user_query: str) -> str:
         video_path=video_path,
         start_time=video_clip_info["start_time"],
         end_time=video_clip_info["end_time"],
-        # Docker volume mount path, UI will use this same shared volume path to access the video clip.
-        output_path=f"./shared_media/{str(uuid4())}.mp4",
+        output_path=str(settings.SHARED_MEDIA_DIR / f"{str(uuid4())}.mp4"),
     )
 
     return clip_path
@@ -151,8 +151,7 @@ def get_video_clip_from_image(video_path: str, user_image: str) -> str:
         video_path=video_path,
         start_time=image_clips[0]["start_time"],
         end_time=image_clips[0]["end_time"],
-        # Docker volume mount path, UI will use this same shared volume path to access the video clip.
-        output_path=f"./shared_media/{str(uuid4())}.mp4",
+        output_path=str(settings.SHARED_MEDIA_DIR / f"{str(uuid4())}.mp4"),
     )
 
     return clip_path

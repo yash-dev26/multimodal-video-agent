@@ -10,11 +10,9 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application code
+COPY pyproject.toml .
 COPY src/ ./src/
+RUN pip install --no-cache-dir .
 
 # Start MCP server
 CMD ["python", "src/video_mcp_server/server.py", "--port", "9090", "--host", "0.0.0.0", "--transport", "streamable-http"]
