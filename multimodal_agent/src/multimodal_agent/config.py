@@ -11,10 +11,9 @@ class Settings(BaseSettings):
 
     # GROQ Configuration
     GROQ_API_KEY: str
-    GROQ_ROUTING_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
-    GROQ_TOOL_USE_MODEL: str = "meta-llama/llama-4-maverick-17b-128e-instruct"
-    GROQ_IMAGE_MODEL: str = "meta-llama/llama-4-maverick-17b-128e-instruct"
-    GROQ_GENERAL_MODEL: str = "meta-llama/llama-4-maverick-17b-128e-instruct"
+    GROQ_ROUTING_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_TOOL_USE_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_GENERAL_MODEL: str = "openai/gpt-oss-120b"
 
     # Langsmith Configuration
     LANGSMITH_API_KEY: str

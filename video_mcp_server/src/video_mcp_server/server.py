@@ -4,7 +4,7 @@ from fastmcp.prompts import Prompt
 from fastmcp.resources import FunctionResource
 from fastmcp.tools import Tool
 
-from video_mcp_server.langsmith import configure as configure_langsmith
+from video_mcp_server.langsmith_utils import configure as configure_langsmith
 from video_mcp_server.prompts import (
     general_system_prompt,
     routing_system_prompt,

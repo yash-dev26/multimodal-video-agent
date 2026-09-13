@@ -140,6 +140,15 @@ const VideoSidebar = ({
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {uploadedVideos.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+            <p className="text-sm font-semibold text-gold-300">No videos yet</p>
+            <p className="mt-2 text-xs leading-relaxed text-ink-500">
+              Upload a video to start analyzing, searching, or chatting with Rocky.
+            </p>
+          </div>
+        )}
+
         {uploadedVideos.map((video) => {
           const isActive = activeVideo?.id === video.id;
           const isProcessing = video.processingStatus === 'in_progress';

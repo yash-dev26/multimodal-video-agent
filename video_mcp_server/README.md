@@ -223,12 +223,31 @@ Environment variables (`.env`, see `.env.example`):
 | `VIDEO_CLIP_IMAGE_SEARCH_TOP_K` | no | `1` | Top-k for image-based clip search |
 | `QUESTION_ANSWER_TOP_K` | no | `3` | Top-k captions used to answer a question |
 
+When running through the root Docker Compose stack, Pixeltable stores its
+catalog in the Compose `postgres` service. Compose sets
+`PIXELTABLE_DB_CONNECT_STR` to the PostgreSQL connection string; this
+prevents Pixeltable from starting its local embedded PostgreSQL server. The
+`.pixeltable` mount is retained only for Pixeltable configuration and file
+cache data.
+
 ---
 
 ## Local Run / Test / Build
 
 ```bash
 pip install -r requirements.txt
+pip install -e ".[test]"
+
+# unit tests; no API keys, video, or running server required
+pytest tests/unit -q
+
+# integration tests; exercises the real MCP registration and concurrency
+# safeguards with fakes, not a live MCP server or real model calls
+pytest tests/integration -q
+
+# run the complete service suite
+pytest -q
+
 # ffmpeg must be installed and on PATH
 
 python src/video_mcp_server/server.py --port 9090 --host 0.0.0.0 --transport streamable-http
@@ -244,7 +263,10 @@ make stop       # stops/removes the container and clears .pixeltable / .records
 make inspect    # launches the MCP Inspector (npx @modelcontextprotocol/inspector)
 ```
 
-No test suite is currently defined.
+The tests set placeholder API credentials where needed and do not index a real
+video. A live `video-mcp-server` process, Pixeltable data, and OpenAI calls are
+only required when manually exercising the running service or running the
+repository-level E2E suite.
 
 > For the full stack (Postgres + this service + `multimodal_agent` +
 > `frontend` together), use the root [`Makefile`](../README.md#-quickstart)

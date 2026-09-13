@@ -7,9 +7,8 @@ from loguru import logger
 from pixeltable.functions import openai
 from pixeltable.functions.huggingface import clip
 from pixeltable.functions.openai import embeddings, vision
-from pixeltable.functions.video import extract_audio
-from pixeltable.iterators import AudioSplitter
-from pixeltable.iterators.video import FrameIterator
+from pixeltable.functions.audio import audio_splitter
+from pixeltable.functions.video import extract_audio, frame_iterator
 
 import video_mcp_server.video.ingestion.registry as registry
 from video_mcp_server.config import get_settings
@@ -111,11 +110,11 @@ class VideoProcessor:
         self.audio_chunks = pxt.create_view(
             self.audio_view_name,
             self.video_table,
-            iterator=AudioSplitter.create(
+            iterator=audio_splitter(
                 audio=self.video_table.audio_extract,
-                chunk_duration_sec=settings.AUDIO_CHUNK_LENGTH,
-                overlap_sec=settings.AUDIO_OVERLAP_SECONDS,
-                min_chunk_duration_sec=settings.AUDIO_MIN_CHUNK_DURATION_SECONDS,
+                duration=settings.AUDIO_CHUNK_LENGTH,
+                overlap=settings.AUDIO_OVERLAP_SECONDS,
+                min_segment_duration=settings.AUDIO_MIN_CHUNK_DURATION_SECONDS,
             ),
             if_exists="replace_force",
         )
@@ -123,7 +122,7 @@ class VideoProcessor:
     def _add_audio_transcription(self):
         self.audio_chunks.add_computed_column(
             transcription=openai.transcriptions(
-                audio=self.audio_chunks.audio_chunk,
+                audio=self.audio_chunks.audio_segment,
                 model=settings.AUDIO_TRANSCRIPT_MODEL,
             ),
             if_exists="ignore",
@@ -155,8 +154,9 @@ class VideoProcessor:
         self.frames_view = pxt.create_view(
             self.frames_view_name,
             self.video_table,
-            iterator=FrameIterator.create(
-                video=self.video_table.video, num_frames=settings.SPLIT_FRAMES_COUNT
+            iterator=frame_iterator(
+                video=self.video_table.video,
+                num_frames=settings.SPLIT_FRAMES_COUNT,
             ),
             if_exists="ignore",
         )

@@ -23,7 +23,18 @@ npm run build       # production build → dist/
 npm run preview     # preview the production build locally
 ```
 
-No test script is currently defined.
+## Testing
+
+No automated frontend test runner is currently configured. Use the TypeScript
+production build as the available automated validation:
+
+```bash
+npm run build       # type-checks with tsc, then creates the Vite production build
+```
+
+For manual smoke testing, run `npm run dev` with `multimodal_agent` available
+at the configured `VITE_API_URL`, then verify upload, video processing,
+text-query clip search, image-query clip search, chat memory, and clip playback.
 
 ## API Usage
 

@@ -1,7 +1,14 @@
-from langsmith import Client
-from loguru import logger
+import os
 
-client = Client()
+from langsmith import Client
+from langchain_core.prompts import PromptTemplate
+from loguru import logger
+from dotenv import load_dotenv
+
+load_dotenv()
+client = Client(
+    api_key=os.environ["LANGSMITH_API_KEY"],
+)
 
 logger = logger.bind(name="Prompts")
 
@@ -55,14 +62,21 @@ def routing_system_prompt() -> str:
     try:
         prompt = client.pull_prompt(_prompt_id)
         return getattr(prompt, "template", str(prompt))
-    except Exception:
+    except Exception as exc:
         logger.warning(
-            "Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt."
+            "Couldn't retrieve prompt from LangSmith: {}. Using hardcoded prompt.",
+            exc,
         )
         try:
-            client.push_prompt(_prompt_id, object=ROUTING_SYSTEM_PROMPT)
-        except Exception:
-            logger.warning("Couldn't push hardcoded prompt to Langsmith either.")
+            client.push_prompt(
+                _prompt_id,
+                object=PromptTemplate.from_template(ROUTING_SYSTEM_PROMPT),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Couldn't push hardcoded prompt to LangSmith: {}",
+                exc,
+            )
         return ROUTING_SYSTEM_PROMPT
 
 
@@ -71,14 +85,21 @@ def tool_use_system_prompt() -> str:
     try:
         prompt = client.pull_prompt(_prompt_id)
         return getattr(prompt, "template", str(prompt))
-    except Exception:
+    except Exception as exc:
         logger.warning(
-            "Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt."
+            "Couldn't retrieve prompt from LangSmith: {}. Using hardcoded prompt.",
+            exc
         )
         try:
-            client.push_prompt(_prompt_id, object=TOOL_USE_SYSTEM_PROMPT)
-        except Exception:
-            logger.warning("Couldn't push hardcoded prompt to Langsmith either.")
+            client.push_prompt(
+                _prompt_id,
+                object=PromptTemplate.from_template(TOOL_USE_SYSTEM_PROMPT),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Couldn't push hardcoded prompt to LangSmith: {}",
+                exc,
+            )
         return TOOL_USE_SYSTEM_PROMPT
 
 
@@ -87,12 +108,19 @@ def general_system_prompt() -> str:
     try:
         prompt = client.pull_prompt(_prompt_id)
         return getattr(prompt, "template", str(prompt))
-    except Exception:
+    except Exception as exc:
         logger.warning(
-            "Couldn't retrieve prompt from Langsmith, check credentials! Using hardcoded prompt."
+            "Couldn't retrieve prompt from LangSmith: {}. Using hardcoded prompt.",
+            exc,
         )
         try:
-            client.push_prompt(_prompt_id, object=GENERAL_SYSTEM_PROMPT)
-        except Exception:
-            logger.warning("Couldn't push hardcoded prompt to Langsmith either.")
+            client.push_prompt(
+                _prompt_id,
+                object=PromptTemplate.from_template(GENERAL_SYSTEM_PROMPT),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Couldn't push hardcoded prompt to LangSmith: {}",
+                exc,
+            )
         return GENERAL_SYSTEM_PROMPT

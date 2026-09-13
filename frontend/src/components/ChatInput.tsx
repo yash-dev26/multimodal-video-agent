@@ -65,10 +65,10 @@ const ChatInput = ({
   };
 
   return (
-    <div className="glass-panel border-x-0 border-b-0 p-4">
+    <div className="glass-panel border-x-0 border-b-0 p-4 px-6">
       {/* File Preview - Only for images */}
       {attachedFile && (
-        <div className="max-w-4xl mx-auto mb-3">
+        <div className="w-full mb-3">
           <div className="relative inline-block glass-panel-raised rounded-lg p-2">
             <div className="flex items-center space-x-2">
               <img
@@ -92,7 +92,7 @@ const ChatInput = ({
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto flex items-center space-x-2">
+      <div className="w-full flex items-center space-x-2">
         <Button onClick={handleImageAttach} variant="secondary" size="icon">
           <Image className="w-4 h-4" />
         </Button>
@@ -122,9 +122,9 @@ const ChatInput = ({
         style={{ display: 'none' }}
       />
 
-      <div className="max-w-4xl mx-auto mt-2">
+      <div className="w-full mt-2">
         <p className="text-xs text-ink-600 text-center font-mono tracking-wide">
-          System operational — amaze!
+          amaze amaze amaze!
         </p>
       </div>
     </div>

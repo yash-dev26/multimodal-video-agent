@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: multimodal_agent
       POSTGRES_PASSWORD: multimodal_agent
@@ -18,10 +18,15 @@ services:
   video-mcp-server:
     build: ./video_mcp_server
     env_file: ./video_mcp_server/.env
+    environment:
+      # Pixeltable uses this external Compose database instead of starting
+      # its embedded PostgreSQL server under /root/.pixeltable/pgdata.
+      - PIXELTABLE_DB_CONNECT_STR=postgresql://multimodal_agent:multimodal_agent@postgres:5432/multimodal_agent
     ports:
       - "9090:9090"
     volumes:
       - ./video_mcp_server/data:/app/videos
+      # Persists Pixeltable config and file cache; catalog data lives in Compose PostgreSQL.
       - ./video_mcp_server/.pixeltable:/root/.pixeltable
       - ./video_mcp_server/.records:/app/.records
       - ~/.cache/huggingface:/root/.cache/huggingface
@@ -31,7 +36,11 @@ services:
     networks:
       - agent-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9090/mcp || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import socket; s=socket.create_connection(('localhost', 9090), 2); s.close()\"",
+        ]
       interval: 10s
       timeout: 5s
       retries: 12

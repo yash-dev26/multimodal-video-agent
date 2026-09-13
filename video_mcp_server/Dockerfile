@@ -12,7 +12,7 @@ WORKDIR /app
 # Install Python dependencies
 COPY pyproject.toml .
 COPY src/ ./src/
-RUN pip install --no-cache-dir .
+RUN pip install .
 
 # Start MCP server
 CMD ["python", "src/video_mcp_server/server.py", "--port", "9090", "--host", "0.0.0.0", "--transport", "streamable-http"]

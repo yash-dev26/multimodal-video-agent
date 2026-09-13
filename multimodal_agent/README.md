@@ -183,6 +183,21 @@ Interactive docs at `/docs` once running.
 ```bash
 pip install -r requirements.txt
 
+# install test dependencies when working from this service directory
+pip install -e ".[test]"
+
+# fast unit tests; no Postgres or running MCP server required
+pytest tests/unit -q
+
+# integration tests; requires a reachable Postgres checkpointer
+docker compose up -d postgres
+# PowerShell: $env:TEST_CHECKPOINTER_DB_URL = "postgresql://multimodal_agent:multimodal_agent@localhost:5432/multimodal_agent"
+# macOS/Linux: export TEST_CHECKPOINTER_DB_URL="postgresql://multimodal_agent:multimodal_agent@localhost:5432/multimodal_agent"
+pytest tests/integration -q
+
+# run the complete service suite
+pytest -q
+
 # requires a reachable Postgres (see CHECKPOINTER_DB_URL) and
 # video_mcp_server running (see MCP_SERVER, defaults to :9090 locally
 # when not in Docker)
@@ -203,7 +218,11 @@ make run        # runs the container on :8080, mounts ./shared_media,
 make stop       # stops/removes the container
 ```
 
-No test suite is currently defined.
+The integration tests use a fake MCP server, but still boot the real FastAPI
+lifespan, LangGraph graph, and Postgres checkpointer. They do not require real
+Groq or video-processing calls; test credentials are supplied by
+`tests/conftest.py`. Set `TEST_CHECKPOINTER_DB_URL` when your local Postgres
+uses a different connection string.
 
 > For the full stack (Postgres + `video_mcp_server` + this service +
 > `frontend` together), use the root [`Makefile`](../README.md#-quickstart)
