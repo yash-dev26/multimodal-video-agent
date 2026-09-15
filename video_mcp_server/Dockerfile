@@ -12,7 +12,13 @@ WORKDIR /app
 # Install Python dependencies
 COPY pyproject.toml .
 COPY src/ ./src/
-RUN pip install .
+
+# Install CPU-only PyTorch
+RUN pip install --no-cache-dir torch \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Install the application and remaining dependencies
+RUN pip install --no-cache-dir .
 
 # Start MCP server
 CMD ["python", "src/video_mcp_server/server.py", "--port", "9090", "--host", "0.0.0.0", "--transport", "streamable-http"]

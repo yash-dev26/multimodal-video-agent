@@ -96,7 +96,7 @@ def remove_video(video_path: str) -> bool:
 
 
 @traceable(name="get_video_clip_from_user_query", run_type="tool")
-def get_video_clip_from_user_query(video_path: str, user_query: str) -> str:
+def get_video_clip_from_user_query(user_query: str, video_path: str | None = None) -> str:
     """Get a video clip based on the user query using speech and caption similarity.
 
     Args:
@@ -135,7 +135,7 @@ def get_video_clip_from_user_query(video_path: str, user_query: str) -> str:
 
 
 @traceable(name="get_video_clip_from_image", run_type="tool")
-def get_video_clip_from_image(video_path: str, user_image: str) -> str:
+def get_video_clip_from_image(user_image: str | None = None, video_path: str | None = None) -> str:
     """Get a video clip based on similarity to a provided image.
 
     Args:
@@ -162,7 +162,7 @@ def get_video_clip_from_image(video_path: str, user_image: str) -> str:
 
 
 @traceable(name="ask_question_about_video", run_type="tool")
-def ask_question_about_video(video_path: str, user_query: str) -> str:
+def ask_question_about_video(user_query: str, video_path: str | None = None) -> str:
     """Get relevant captions from the video based on the user's question.
 
     Args:

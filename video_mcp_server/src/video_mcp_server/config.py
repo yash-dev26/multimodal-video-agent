@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     CAPTION_SIMILARITY_EMBD_MODEL: str = "text-embedding-3-small"
 
     # Caption Similarity Search Configuration
-    CAPTION_MODEL_PROMPT: str = "Describe what is happening in the image"
+    CAPTION_MODEL_PROMPT: str = "Describe what is happening in the image in one or two sentences. If a famous person is in the image, please mention their name. Don't leave it blank. If you can't identify the content of the image, please describe it as best as you can."
 
     # The time interval in seconds to extend before and after the frame's timestamp when searching for video clips based on image similarity.
     # This allows for a broader context around the matched frame, capturing relevant video segments that may not be exactly at the frame's timestamp but are still contextually related.

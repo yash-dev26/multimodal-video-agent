@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: multimodal_agent
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       - agent-net
     healthcheck:
@@ -22,6 +23,7 @@ services:
       # Pixeltable uses this external Compose database instead of starting
       # its embedded PostgreSQL server under /root/.pixeltable/pgdata.
       - PIXELTABLE_DB_CONNECT_STR=postgresql://multimodal_agent:multimodal_agent@postgres:5432/multimodal_agent
+      - SHARED_MEDIA_DIR=/shared_media
     ports:
       - "9090:9090"
     volumes:
@@ -32,7 +34,7 @@ services:
       - ~/.cache/huggingface:/root/.cache/huggingface
       # Shared volume: clips written by this container (./shared_media/*.mp4)
       # are immediately accessible to multimodal-agent's /media route.
-      - shared_media:/app/shared_media
+      - shared_media:/shared_media
     networks:
       - agent-net
     healthcheck:
@@ -55,10 +57,11 @@ services:
       # MCP server — When running outside Docker, config.py automatically
       # defaults or adapts this to http://localhost:9090/mcp.
       - MCP_SERVER=http://video-mcp-server:9090/mcp
+      - SHARED_MEDIA_DIR=/shared_media
     ports:
       - "8080:8080"
     volumes:
-      - shared_media:/app/shared_media
+      - shared_media:/shared_media
     depends_on:
       postgres:
         condition: service_healthy

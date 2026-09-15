@@ -97,6 +97,7 @@ def make_tool_agent_node(llm_with_tools, tool_use_system_prompt: str):
         if new_clip_path:
             logger.info(f"Tool loop produced clip: {new_clip_path}")
             updates["clip_path"] = new_clip_path
+            return updates
 
         system_prompt = tool_use_system_prompt.format(
             is_image_provided=bool(state.get("image_base64"))
