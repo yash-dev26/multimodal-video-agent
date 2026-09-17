@@ -71,7 +71,9 @@ def add_index_to_registry(
     VIDEO_INDEXES_REGISTRY[video_name] = cached_table_meta
 
     dt = datetime.now()
-    dtstr = dt.strftime("%Y-%m-%d%H:%M:%S")
+    # Use hyphens instead of colons — colons are reserved characters on Windows
+    # and produce [Errno 22] Invalid argument when used in filenames.
+    dtstr = dt.strftime("%Y-%m-%dT%H-%M-%S")
     records_dir = Path(DEFAULT_CACHED_TABLES_REGISTRY_DIR)
     records_dir.mkdir(parents=True, exist_ok=True)
     with open(records_dir / f"registry_{dtstr}.json", "w") as f:
@@ -107,7 +109,9 @@ def remove_index_from_registry(video_name: str) -> bool:
     del registry[video_name]
 
     dt = datetime.now()
-    dtstr = dt.strftime("%Y-%m-%d%H:%M:%S")
+    # Use hyphens instead of colons — colons are reserved characters on Windows
+    # and produce [Errno 22] Invalid argument when used in filenames.
+    dtstr = dt.strftime("%Y-%m-%dT%H-%M-%S")
     records_dir = Path(DEFAULT_CACHED_TABLES_REGISTRY_DIR)
     records_dir.mkdir(parents=True, exist_ok=True)
     with open(records_dir / f"registry_{dtstr}.json", "w") as f:
