@@ -1,0 +1,5 @@
+langsmith>=0.1
+langchain-core>=0.3
+python-dotenv>=0.21
+langchain-mcp-adapters>=0.3.2,<2.0.0
+
